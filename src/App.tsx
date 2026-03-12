@@ -1,11 +1,10 @@
 import { Route, Routes } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
-
-const HomePage = () => <main className="min-h-300">Home</main>;
-const AboutPage = () => <main className="min-h-300">About</main>;
-const VolumeIPage = () => <main className="min-h-300">Volume I</main>;
-const LetterboxPage = () => <main className="min-h-300">Letterbox</main>;
+import HomePage from './components/HomePage';
+import AboutPage from './components/AboutPage';
+import VolumeIPage from './components/Volume1Page';
+import LetterboxPage from './components/LetterboxPage';
 
 function App() {
   return (
