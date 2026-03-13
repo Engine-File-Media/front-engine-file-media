@@ -69,15 +69,15 @@ type TextSectionProps = {
 function TextSection({ title, paragraphs, bordered = false }: TextSectionProps) {
     return (
         <section className={bordered ? 'border-t border-black/10' : ''}>
-            <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-20 md:px-10 md:py-24">
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-6 py-16 md:gap-8 md:px-10 md:py-20 lg:py-24 2xl:max-w-4xl 2xl:gap-10 2xl:py-28">
                 <h2
-                    className="text-center text-[36px] leading-tight text-[#0A0A0A] md:text-[40px]"
+                    className="text-center text-[28px] leading-tight text-[#0A0A0A] sm:text-[32px] md:text-[36px] lg:text-[40px]"
                     style={{ fontFamily: 'Crimson Text, serif' }}
                 >
                     {title}
                 </h2>
                 <div
-                    className="space-y-6 text-[20px] leading-[1.3] text-[#0A0A0A]/65"
+                    className="space-y-5 text-[16px] leading-[1.35] text-[#0A0A0A]/65 sm:text-[17px] md:space-y-6 md:text-[18px] lg:text-[20px]"
                     style={{ fontFamily: 'Crimson Text, serif' }}
                 >
                     {paragraphs.map((paragraph) => (
@@ -97,15 +97,15 @@ type DarkSectionProps = {
 function DarkSection({ title, paragraphs }: DarkSectionProps) {
     return (
         <section className="bg-[#2A2A2A] text-white">
-            <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-8 px-6 py-20 text-center md:px-10 md:py-24">
+            <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-7 px-6 py-16 text-center md:gap-8 md:px-10 md:py-20 lg:py-24 2xl:max-w-5xl 2xl:gap-10 2xl:py-28">
                 <h2
-                    className="text-[36px] leading-tight md:text-[40px]"
+                    className="text-[28px] leading-tight sm:text-[32px] md:text-[36px] lg:text-[40px]"
                     style={{ fontFamily: 'Crimson Text, serif' }}
                 >
                     {title}
                 </h2>
                 <div
-                    className="max-w-145.5 space-y-6 text-[20px] leading-[1.3] text-white/92"
+                    className="max-w-145.5 space-y-5 text-[16px] leading-[1.35] text-white/92 sm:text-[17px] md:space-y-6 md:text-[18px] lg:text-[20px] 2xl:max-w-4xl"
                     style={{ fontFamily: 'Crimson Text, serif' }}
                 >
                     {paragraphs.map((paragraph) => (
@@ -127,8 +127,8 @@ type GallerySectionProps = {
 function GallerySection({ large, top, bottom, reverse = false }: GallerySectionProps) {
     return (
         <section>
-            <div className="mx-auto w-full max-w-303.25 px-6 py-20 md:px-10 md:py-24">
-                <div className="grid gap-6 md:grid-cols-[554px_554px] md:justify-center md:items-start">
+            <div className="mx-auto w-full max-w-303.25 px-6 py-16 md:px-10 md:py-20 lg:py-24 2xl:max-w-360 2xl:px-12 2xl:py-28">
+                <div className="grid gap-6 md:grid-cols-2 md:justify-center md:items-start xl:grid-cols-[554px_554px] 2xl:grid-cols-[620px_620px] 2xl:gap-8">
                     <div className={reverse ? 'order-2' : ''}>
                         <div>
                             <img
@@ -162,18 +162,18 @@ function GallerySection({ large, top, bottom, reverse = false }: GallerySectionP
 
 function AboutPage() {
     return (
-        <main className="bg-white pt-28 text-[#0A0A0A]">
+        <main className="bg-white pt-20 text-[#0A0A0A] md:pt-24 lg:pt-28 2xl:pt-32">
             <section>
-                <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 py-4 md:px-12 md:py-4.25">
+                <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-4 md:gap-10 md:px-12 md:py-4.25 2xl:max-w-4xl 2xl:gap-12">
                     <div className="space-y-8">
                         <h1
-                            className="text-center text-[36px] leading-[124.98%] tracking-[-1.3px] md:text-[36px]"
+                            className="text-center text-[28px] leading-[124.98%] tracking-[-1.1px] sm:text-[32px] md:text-[36px]"
                             style={{ fontFamily: 'Crimson Text, serif' }}
                         >
                             What is Engine File Media
                         </h1>
                         <div
-                            className="space-y-6 text-[20px] leading-[124.98%] tracking-[-1.3px] text-[#0A0A0A]"
+                            className="space-y-5 text-[16px] leading-[130%] tracking-[-0.8px] text-[#0A0A0A] sm:text-[17px] md:space-y-6 md:text-[18px] lg:text-[20px]"
                             style={{ fontFamily: 'Crimson Text, serif' }}
                         >
                             {introParagraphs.map((paragraph) => (
@@ -200,12 +200,12 @@ function AboutPage() {
             </section>
 
             <section>
-                <div className="mx-auto w-full max-w-250.75 px-6 py-20 md:px-10 md:py-24">
+                <div className="mx-auto w-full max-w-250.75 px-6 py-16 md:px-10 md:py-20 lg:py-24 2xl:max-w-303.25 2xl:py-28">
                     <div className="overflow-hidden bg-[#F5F1EB]">
                         <img
                             src={introHeroImage}
                             alt="Editorial introduction to Engine File Media"
-                            className="h-90 w-full object-cover md:h-164.25"
+                            className="h-72 w-full object-cover sm:h-90 md:h-140 lg:h-164.25 2xl:h-190"
                         />
                     </div>
                 </div>
@@ -216,19 +216,19 @@ function AboutPage() {
             <GallerySection {...firstGallery} />
 
             <section className="border-t border-black/10">
-                <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-20 md:px-10 md:py-24">
+                <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-6 py-16 md:gap-8 md:px-10 md:py-20 lg:py-24 2xl:max-w-4xl 2xl:gap-10 2xl:py-28">
                     <h2
-                        className="text-center text-[36px] leading-tight text-[#0A0A0A] md:text-[40px]"
+                        className="text-center text-[28px] leading-tight text-[#0A0A0A] sm:text-[32px] md:text-[36px] lg:text-[40px]"
                         style={{ fontFamily: 'Crimson Text, serif' }}
                     >
                         Editorial Approach
                     </h2>
                     <div
-                        className="space-y-6 text-[20px] leading-[1.3] text-[#0A0A0A]/65"
+                        className="space-y-5 text-[16px] leading-[1.35] text-[#0A0A0A]/65 sm:text-[17px] md:space-y-6 md:text-[18px] lg:text-[20px]"
                         style={{ fontFamily: 'Crimson Text, serif' }}
                     >
                         <p>{editorialApproachIntro}</p>
-                        <ul className="list-disc space-y-4 pl-6 marker:text-[#0A0A0A]/65">
+                        <ul className="list-disc space-y-3 pl-5 marker:text-[#0A0A0A]/65 md:space-y-4 md:pl-6">
                             {editorialApproachBullets.map((bullet) => (
                                 <li key={bullet}>{bullet}</li>
                             ))}
@@ -245,12 +245,12 @@ function AboutPage() {
             <TextSection title="Editorial Independence" paragraphs={editorialIndependenceParagraphs} />
 
             <section>
-                <div className="mx-auto w-full max-w-303.25 px-6 py-20 md:px-10 md:py-24">
+                <div className="mx-auto w-full max-w-303.25 px-6 py-16 md:px-10 md:py-20 lg:py-24 2xl:max-w-360 2xl:px-12 2xl:py-28">
                     <div className="overflow-hidden">
                         <img
                             src={wideImage}
                             alt="Long-form editorial archive visual"
-                            className="h-80 w-full object-cover md:h-187.25"
+                            className="h-64 w-full object-cover sm:h-80 md:h-150 lg:h-187.25 2xl:h-210"
                         />
                     </div>
                 </div>
