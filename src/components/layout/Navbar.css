@@ -1,0 +1,47 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #ffffff;
+  padding: 0 60px;
+  height: 72px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.navbar-logo {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar-link {
+  font-family: system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: #1a1a1a;
+  text-decoration: none;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: opacity 0.2s ease;
+}
+
+.navbar-link:hover {
+  opacity: 0.5;
+}
+
+.navbar-link.active {
+  font-weight: 700;
+}
