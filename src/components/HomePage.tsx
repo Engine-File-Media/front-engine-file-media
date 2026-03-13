@@ -1,7 +1,26 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import portada from '../assets/FIGMA/FOTOGRAFIAS/Home/Portada.png';
 
 function HomePage() {
+    const [email, setEmail] = useState('');
+    const [emailError, setEmailError] = useState('');
+
+    const handleSubscribe = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        const trimmedEmail = email.trim();
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!emailPattern.test(trimmedEmail)) {
+            setEmailError('Please enter a valid email address.');
+            return;
+        }
+
+        setEmailError('');
+        console.log(trimmedEmail);
+    };
+
     return (
         <main className="w-full flex flex-col items-center bg-white">
             <section className="relative w-full h-157 bg-[#2B2B2B] overflow-hidden">
@@ -112,6 +131,59 @@ function HomePage() {
                     </div>
                 </div>
             </div>
+            </section>
+
+            {/* Sección 3: Seccion Subscripcion */}
+            <section className="w-full h-105.75 bg-[#AEAEAE] flex items-center justify-center">
+                <div className="w-full max-w-337.5 h-full flex flex-col items-center pt-20">
+                    <h2
+                        className="m-0 w-63.5 h-4.5 text-center text-[29px] italic font-medium leading-4.5 tracking-[0.6px] text-white flex items-center justify-center"
+                        style={{ fontFamily: 'Inter, sans-serif' }}
+                    >
+                        Editorial Dispatch
+                    </h2>
+
+                    <p
+                        className="m-0 mt-9.75 w-144.5 h-18 text-center text-[19px] font-normal leading-[125%] text-white flex items-center justify-center"
+                        style={{ fontFamily: 'Crimson Text, serif' }}
+                    >
+                        Subscribe for bi-weekly dispatches on the technical evolution of contemporary motorsport. Decoding the future of the grid through an technical lens
+                    </p>
+
+                    <form className="mt-9.75 flex flex-col items-center" onSubmit={handleSubscribe}>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(event) => {
+                                setEmail(event.target.value);
+                                if (emailError) {
+                                    setEmailError('');
+                                }
+                            }}
+                            placeholder="youremail@gmail.com"
+                            aria-label="Email address"
+                            className="w-120.25 h-11 resize-none rounded-3xl bg-white border-0 px-4 py-2 text-[15px] font-light leading-7 text-black placeholder:text-black/30 outline-none"
+                            style={{ fontFamily: 'Inter, sans-serif' }}
+                        />
+
+                        {emailError && (
+                            <p
+                                className="m-0 mt-2 text-[13px] font-medium text-white"
+                                style={{ fontFamily: 'Inter, sans-serif' }}
+                            >
+                                {emailError}
+                            </p>
+                        )}
+
+                        <button
+                            type="submit"
+                            className="mt-9.75 w-53.75 h-11 rounded-3xl border-0 bg-[#696969] text-white text-[16px] font-bold leading-3.75 tracking-[2.5px] uppercase"
+                            style={{ fontFamily: 'Inter, sans-serif' }}
+                        >
+                            Subscribe
+                        </button>
+                    </form>
+                </div>
             </section>
 
             {/* Sección 4: Institutional Purpose / Editorial Scope */}
