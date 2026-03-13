@@ -9,7 +9,7 @@ const navLinks = [
 
 const Navbar = () => {
   return (
-    <header className="w-full h-19.5 px-24 py-6 bg-white flex flex-col items-start">
+    <header className="w-full h-19.5 px-24 py-6 bg-white flex flex-col items-start border-b border-black/10">
       <div className="w-full max-w-6xl flex flex-row items-center justify-between h-7.5">
         {/* Logo */}
         <NavLink to="/" className="w-20 h-7.75 flex flex-col items-start shrink-0">
