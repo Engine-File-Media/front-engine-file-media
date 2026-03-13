@@ -1,6 +1,7 @@
 import { Route, Routes, useLocation } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
+import FooterGeneral from './components/layout/FooterGeneral';
 import HomePage from './components/HomePage';
 import AboutPage from './components/AboutPage';
 import VolumeIPage from './components/Volume1Page';
@@ -19,7 +20,7 @@ function App() {
         <Route path="/volume-i" element={<VolumeIPage />} />
         <Route path="/letterbox" element={<LetterboxPage />} />
       </Routes>
-      {isHome ? <Footer /> : <div> hello </div>}
+      {isHome ? <Footer /> : <FooterGeneral />}
     </div>
   );
 }
