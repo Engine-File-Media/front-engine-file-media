@@ -189,13 +189,10 @@ function HomePage() {
             {/* Sección 4: Institutional Purpose / Editorial Scope */}
             <section className="w-full bg-white flex flex-col items-center py-24">
 
-                {/* Frame 10 — 804px flex col, gap 50px */}
-                <div className="flex flex-col items-center gap-12.5 w-201">
+                {/* Rectangle 4 — top line */}
+                <div className="w-201 h-px bg-[#D9D9D9]" />
 
-                    {/* Rectangle 4 — top line */}
-                    <div className="w-full h-px bg-[#D9D9D9]" />
-
-                    {/* Institutional Purpose */}
+                <div className="flex flex-col items-center gap-10 w-201 mt-10">
                     <h2
                         className="m-0 w-full h-9.25 flex items-center justify-center text-center text-[33px] font-semibold leading-9 tracking-[-0.7px] text-[#0A0A0A]"
                         style={{ fontFamily: 'Crimson Text, serif' }}
@@ -203,18 +200,20 @@ function HomePage() {
                         Institutional Purpose
                     </h2>
 
-                    {/* Methodology body paragraph — 625px centered */}
                     <p
                         className="m-0 w-156.25 h-40.25 text-center text-[18px] font-normal leading-[125%] text-[#0A0A0A] flex items-center"
                         style={{ fontFamily: 'Crimson Text, serif' }}
                     >
-                        Engine File Media documents motorsport through a structured, archival-oriented methodology, focusing on its technical, regulatory, and organizational dimensions. Each volume is developed through extended research, cross-referenced documentation, and factual verification, prioritizing long-term analytical relevance over immediacy. All publications are produced under full editorial independence.
+                        Engine File Media documents motorsport through a structured, archival-oriented methodology, focusing on its technical, regulatory, and organizational dimensions.<br/><br/>
+                        Each volume is developed through extended research, cross-referenced documentation, and factual verification, prioritizing long-term analytical relevance over immediacy.<br/><br/>
+                        All publications are produced under full editorial independence.
                     </p>
+                </div>
 
-                    {/* Rectangle 5 — separator line */}
-                    <div className="w-full h-px bg-[#D9D9D9]" />
+                {/* Rectangle 5 — separator line */}
+                <div className="w-201 h-px bg-[#D9D9D9] mt-10" />
 
-                    {/* Editorial Scope heading */}
+                <div className="flex flex-col items-center gap-10 w-201 mt-10">
                     <h2
                         className="m-0 w-48.5 h-9.25 flex items-center justify-center text-center text-[33px] font-semibold leading-9 tracking-[-0.7px] text-[#0A0A0A]"
                         style={{ fontFamily: 'Crimson Text, serif' }}
@@ -222,20 +221,17 @@ function HomePage() {
                         Editorial Scope
                     </h2>
 
-                </div>
-
-                {/* Frame 11 — 576px editorial independence text */}
-                <div className="flex flex-row items-start p-2.5 gap-2.5 w-xl h-48.75 mt-16.75">
                     <p
                         className="m-0 w-xl h-34.5 text-center text-[18px] font-normal leading-[125%] text-[#0A0A0A] flex items-center"
                         style={{ fontFamily: 'Crimson Text, serif' }}
                     >
-                        Engine File Media operates outside the structures of news media, commercial magazines, lifestyle publishing, and sponsor-driven platforms. The project is conceived as a long-form editorial archive — independent of advertising cycles, trend-based content, and digital-first consumption models.
+                        Engine File Media operates outside the structures of news media, commercial magazines, lifestyle publishing, and sponsor-driven platforms.<br/><br/>
+                        The project is conceived as a long-form editorial archive — independent of advertising cycles, trend-based content, and digital-first consumption models.
                     </p>
                 </div>
 
                 {/* Rectangle 6 — bottom line */}
-                <div className="w-201 h-px bg-[#D9D9D9] mt-22.25" />
+                <div className="w-201 h-px bg-[#D9D9D9] mt-10" />
 
             </section>
         </main>
