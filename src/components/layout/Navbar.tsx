@@ -14,7 +14,7 @@ const Navbar = () => {
 
     return (
         <header className="w-full bg-white border-b border-black/10">
-            <div className="w-full px-6 md:px-24 py-6 flex flex-row items-center justify-between h-19.5">
+            <div className="w-full px-5 py-7.75 md:px-24 md:py-6 flex flex-row items-center justify-between h-20 md:h-19.5">
                 {/* Logo */}
                 <NavLink to="/" className="flex items-center shrink-0">
                     <img src={logo} alt="EFM Logo" className="w-20 h-7.75 object-contain" />
@@ -40,13 +40,13 @@ const Navbar = () => {
 
                 {/* Hamburger — mobile only */}
                 <button
-                    className="md:hidden flex flex-col justify-center items-center gap-1.5 w-8 h-8 bg-transparent border-0 cursor-pointer p-0"
+                    className="md:hidden flex flex-col justify-center items-center gap-1.75 w-6 h-5 bg-transparent border-0 cursor-pointer p-0"
                     onClick={() => setMenuOpen((v) => !v)}
                     aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
                 >
-                    <span className={`block w-5 h-px bg-[#171717] transition-all duration-200 origin-center ${menuOpen ? 'rotate-45 translate-y-1.5' : ''}`} />
-                    <span className={`block w-5 h-px bg-[#171717] transition-opacity duration-200 ${menuOpen ? 'opacity-0' : ''}`} />
-                    <span className={`block w-5 h-px bg-[#171717] transition-all duration-200 origin-center ${menuOpen ? '-rotate-45 -translate-y-1.5' : ''}`} />
+                    <span className={`block w-4.5 h-px bg-[#171717] transition-all duration-200 origin-center ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
+                    <span className={`block w-4.5 h-px bg-[#171717] transition-opacity duration-200 ${menuOpen ? 'opacity-0' : ''}`} />
+                    <span className={`block w-4.5 h-px bg-[#171717] transition-all duration-200 origin-center ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
                 </button>
             </div>
 
@@ -60,7 +60,7 @@ const Navbar = () => {
                             onClick={() => setMenuOpen(false)}
                             style={{ fontFamily: 'Inter, sans-serif' }}
                             className={({ isActive }) =>
-                                `font-medium text-[12px] leading-4.5 tracking-[1.2px] uppercase no-underline transition-colors duration-200 py-4 border-b border-black/5 ${
+                                `font-medium text-[14px] leading-5 tracking-[1.2px] uppercase no-underline transition-colors duration-200 py-4 border-b border-black/5 ${
                                     isActive ? 'text-[#171717]' : 'text-[#525252]'
                                 }`
                             }
