@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import portada from '../assets/FIGMA/FOTOGRAFIAS/Home/Portada.png';
+import bgVideo from '../assets/FIGMA/Mockups/Background EFM.mp4';
 
 function HomePage() {
     const [email, setEmail] = useState('');
@@ -23,22 +24,34 @@ function HomePage() {
 
     return (
         <main className="w-full max-w-full overflow-x-hidden flex flex-col items-center bg-white">
-            <section className="w-full bg-[#2B2B2B] flex flex-col items-center px-7.5 py-28 md:py-30 lg:py-36">
+            <section className="relative w-full overflow-hidden flex flex-col items-center px-7.5 py-28 md:py-30 lg:py-36">
+                <video
+                    className="absolute inset-0 h-full w-full object-cover"
+                    src={bgVideo}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    aria-hidden="true"
+                />
+                <div className="absolute inset-0 bg-[#2B2B2B]/60" aria-hidden="true" />
+
                 <h1
-                    className="m-0 text-center text-[43px] leading-15 tracking-[0.7px] text-white md:text-[52px] lg:text-[59px]"
+                    className="relative z-10 m-0 text-center text-[43px] leading-15 tracking-[0.7px] text-white md:text-[52px] lg:text-[59px]"
                     style={{ fontFamily: 'Crimson Text, serif' }}
                 >
                     Engine File Media
                 </h1>
 
                 <p
-                    className="m-0 mt-3 max-w-55.5 text-center text-[13px] italic font-normal leading-[125%] tracking-[0.02em] text-white md:mt-5 md:max-w-90 md:text-[15px] lg:max-w-121.5 lg:text-[17px]"
+                    className="relative z-10 m-0 mt-3 max-w-55.5 text-center text-[13px] italic font-normal leading-[125%] tracking-[0.02em] text-white md:mt-5 md:max-w-90 md:text-[15px] lg:max-w-121.5 lg:text-[17px]"
                     style={{ fontFamily: 'Crimson Text, serif' }}
                 >
                     Elevating motorsport history through the lens of engineering and regulatory rigor.
                 </p>
 
-                <div className="mt-15 flex flex-col items-center gap-4.5 md:mt-11.25 md:gap-5">
+                <div className="relative z-10 mt-15 flex flex-col items-center gap-4.5 md:mt-11.25 md:gap-5">
                     <NavLink
                         to="/volume-i"
                         className="w-49.5 h-9.25 bg-black text-white no-underline flex items-center justify-center text-center text-[12px] font-bold leading-3.75 tracking-[2.5px] uppercase md:w-60 md:h-11.25 md:text-[14px]"
