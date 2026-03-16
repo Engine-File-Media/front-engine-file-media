@@ -5,7 +5,8 @@ import FooterGeneral from './components/layout/FooterGeneral';
 import HomePage from './components/HomePage';
 import AboutPage from './components/AboutPage';
 import VolumeIPage from './components/Volume1Page';
-import LetterboxPage from './components/LetterboxPage';
+import JournalPage from './components/JournalPage';
+import NotFoundPage from './components/NotFoundPage';
 
 function App() {
   const location = useLocation();
@@ -18,7 +19,8 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/volume-i" element={<VolumeIPage />} />
-        <Route path="/letterbox" element={<LetterboxPage />} />
+        <Route path="/journal" element={<JournalPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       {isHome ? <Footer /> : <FooterGeneral />}
     </div>

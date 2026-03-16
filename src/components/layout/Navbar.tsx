@@ -5,7 +5,7 @@ import logo from '../../assets/FIGMA/image.png';
 const mainNavLinks = [
     { label: 'HOME', path: '/' },
     { label: 'ABOUT', path: '/about' },
-    { label: 'LETTERBOX', path: '/letterbox' },
+    { label: 'JOURNAL', path: '/journal' },
 ];
 
 const volumeLinks = [
