@@ -22,7 +22,7 @@ function HomePage() {
     };
 
     return (
-        <main className="w-full flex flex-col items-center bg-white">
+        <main className="w-full max-w-full overflow-x-hidden flex flex-col items-center bg-white">
             <section className="w-full bg-[#2B2B2B] flex flex-col items-center px-7.5 py-28 md:py-30 lg:py-36">
                 <h1
                     className="m-0 text-center text-[43px] leading-15 tracking-[0.7px] text-white md:text-[52px] lg:text-[59px]"
@@ -58,10 +58,14 @@ function HomePage() {
             </section>
 
             <section className="w-full bg-white">
-                <div className="mx-auto flex w-full max-w-97.5 flex-col items-center px-0 pb-23.5 pt-5 md:max-w-337.5 md:flex-row md:gap-16 md:px-20 md:py-24">
-                    <img src={portada} alt="Volume I Cover" className="mx-auto block w-auto max-w-full h-auto" />
+                <div className="mx-auto flex w-full max-w-97.5 flex-col items-center px-0 pb-23.5 pt-5 md:max-w-337.5 md:flex-row md:items-center md:gap-16 md:px-20 md:py-24">
+                    <img
+                        src={portada}
+                        alt="Volume I Cover"
+                        className="mx-auto block w-auto max-w-full h-auto md:max-w-[45%] md:shrink"
+                    />
 
-                    <div className="mt-7 flex w-full max-w-82.25 flex-col items-center gap-5 px-4 text-center md:mt-0 md:max-w-113.5 md:items-start md:px-0 md:text-left">
+                    <div className="mt-7 flex w-full max-w-82.25 flex-col items-center gap-5 px-4 text-center md:mt-0 md:min-w-0 md:max-w-113.5 md:items-start md:px-0 md:text-left">
                         <p
                             className="m-0 text-[12.5px] font-normal leading-3.75 tracking-[4.5px] uppercase text-[#0A0A0A] md:text-[13px] md:tracking-[2.5px]"
                             style={{ fontFamily: 'Inter, sans-serif' }}
