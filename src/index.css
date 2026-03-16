@@ -2,6 +2,11 @@
 
 @theme {
   --font-serif: "EB Garamond", Georgia, serif;
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 70rem;
+  --breakpoint-lg: 80rem;
+  --breakpoint-xl: 96rem;
+  --breakpoint-2xl: 112rem;
 }
 
 
