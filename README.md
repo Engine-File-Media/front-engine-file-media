@@ -71,3 +71,26 @@ export default defineConfig([
   },
 ])
 ```
+
+## Convertir PNG a WebP
+
+Para optimizar imágenes PNG a formato WebP en el directorio actual, usa este comando PowerShell:
+
+```powershell
+Get-ChildItem *.png | ForEach-Object {
+  $webpFile = $_.BaseName + ".webp"
+  magick $_.FullName $webpFile
+  Remove-Item $_.FullName
+}
+```
+
+### ¿Qué hace?
+1. **Get-ChildItem \*.png** — Obtiene todos los archivos PNG del directorio
+2. **ForEach-Object** — Itera sobre cada archivo PNG encontrado
+3. **$_.BaseName + ".webp"** — Crea el nombre del archivo de salida en WebP
+4. **magick** — Convierte PNG a WebP (ImageMagick)
+5. **Remove-Item** — Elimina el archivo PNG original tras la conversión
+
+### Herramientas requeridas
+- **[ImageMagick](https://imagemagick.org/)** — Motor de conversión de imágenes. Instala con: `choco install imagemagick` (requiere admin y Chocolatey)
+```

@@ -1,11 +1,11 @@
-import introHeroImage from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle71240-v8k8-800h.png';
-import galleryImageA from '../assets/FIGMA/FOTOGRAFIAS/ABOUT/rectangle71242-2o3l-600w.png';
-import galleryImageB from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle81243-2t5r-600h.png';
-import galleryImageC from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle91244-06tk-600w.png';
-import galleryImageD from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle71246-2hs-400h.png';
-import galleryImageE from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle91247-3s6-400h.png';
-import galleryImageF from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle81248-v1bl-600w.png';
-import wideImage from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle71263-sl9i-800h.png';
+import introHeroImage from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle71240-v8k8-800h.webp';
+import galleryImageA from '../assets/FIGMA/FOTOGRAFIAS/ABOUT/rectangle71242-2o3l-600w.webp';
+import galleryImageB from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle81243-2t5r-600h.webp';
+import galleryImageC from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle91244-06tk-600w.webp';
+import galleryImageD from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle71246-2hs-400h.webp';
+import galleryImageE from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle91247-3s6-400h.webp';
+import galleryImageF from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle81248-v1bl-600w.webp';
+import wideImage from '../assets/FIGMA/FOTOGRAFIAS/About/rectangle71263-sl9i-800h.webp';
 import { NavLink } from 'react-router-dom';
 
 const introParagraphs = [

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import portada from '../assets/FIGMA/FOTOGRAFIAS/Home/Portada.png';
+import portada from '../assets/FIGMA/FOTOGRAFIAS/Home/Portada.webp';
 import bgVideo from '../assets/FIGMA/Mockups/Background EFM.mp4';
 
 function HomePage() {

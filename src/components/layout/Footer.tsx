@@ -1,4 +1,4 @@
-import logotipos from '../../assets/FIGMA/Logo de Marcas/Logotipos.png';
+import logotipos from '../../assets/FIGMA/Logo de Marcas/Logotipos.webp';
 
 const Footer = () => {
   return (

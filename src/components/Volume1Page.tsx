@@ -1,7 +1,7 @@
-import bookMockupCovers from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.png';
-import indiceImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.png';
-import capituloAudiImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.png';
-import introduccionImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.png';
+import bookMockupCovers from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.webp';
+import indiceImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.webp';
+import capituloAudiImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
+import introduccionImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
 
 const keyThemes = [
     {
