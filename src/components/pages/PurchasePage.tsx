@@ -3,6 +3,7 @@ import indiceImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.web
 import capituloAudiImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
 import introduccionImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
 import toyotaCelicaImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/TOYOTA-CELICA-ST205.webp';
+import { useState } from 'react';
 
 const shippingInputClasses =
   'h-11 w-full border border-black/20 bg-white px-3 text-[14px] text-[#0A0A0A] outline-none transition-colors focus:border-black/45';
@@ -16,6 +17,17 @@ const galleryImages = [
 ];
 
 function PurchasePage() {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % galleryImages.length);
+  };
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
+  };
+
   return (
     <main className="w-full bg-white">
       <section className="border-b border-black/10 bg-[#F8F8F6]">
@@ -57,7 +69,7 @@ function PurchasePage() {
                   className="text-[13px] tracking-[1.4px] text-[#0A0A0A]/60 uppercase"
                   style={{ fontFamily: 'Inter, sans-serif' }}
                 >
-                  USD 100.00 each
+                  USD 90.00 each
                 </p>
               </div>
 
@@ -173,7 +185,6 @@ function PurchasePage() {
                 </label>
               </div>
             </section>
-
             <section className="border border-black/10 p-5 md:p-7">
               <h2
                 className="border-b border-black/10 pb-4 text-[27px] leading-[1.05] text-[#0A0A0A] md:text-[31px]"
@@ -229,20 +240,46 @@ function PurchasePage() {
               </p>
 
               <div className="mt-5 space-y-3">
-                <img
-                  src={galleryImages[0].src}
-                  alt={galleryImages[0].alt}
-                  className="h-62 w-full border border-black/10 object-cover"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  {galleryImages.slice(1).map((image) => (
-                    <img
-                      key={image.alt}
-                      src={image.src}
-                      alt={image.alt}
-                      className="h-26 w-full border border-black/10 object-cover"
-                    />
-                  ))}
+                {/* Carousel */}
+                <div className="relative border border-black/10 bg-[#FAFAFA]">
+                  <img
+                    src={galleryImages[currentImageIndex].src}
+                    alt={galleryImages[currentImageIndex].alt}
+                    onClick={() => setIsModalOpen(true)}
+                    className="h-62 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                  />
+                  {/* Navigation Buttons */}
+                  <button
+                    onClick={handlePrevImage}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                    aria-label="Previous image"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleNextImage}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                    aria-label="Next image"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+                {/* Image Counter */}
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[12px] text-[#0A0A0A]/60" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    {currentImageIndex + 1} / {galleryImages.length}
+                  </span>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="text-[12px] text-[#0A0A0A]/60 hover:text-[#0A0A0A] transition-colors border-b border-black/10 hover:border-black/45 pb-0.5"
+                    style={{ fontFamily: 'Inter, sans-serif' }}
+                  >
+                    View fullscreen
+                  </button>
                 </div>
               </div>
             </section>
@@ -255,7 +292,7 @@ function PurchasePage() {
               <div className="mt-5 space-y-3 border-b border-black/10 pb-4 text-[14px]" style={{ fontFamily: 'Inter, sans-serif' }}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[#0A0A0A]/70">Volume I x1</span>
-                  <span className="text-[#0A0A0A]">USD 100.00</span>
+                  <span className="text-[#0A0A0A]">USD 90.00</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[#0A0A0A]/70">Shipping</span>
@@ -268,13 +305,65 @@ function PurchasePage() {
                   Total
                 </span>
                 <strong className="text-[30px] leading-none text-[#0A0A0A]" style={{ fontFamily: 'Crimson Text, serif' }}>
-                  USD 125.00
+                  USD 115.00
                 </strong>
               </div>
             </section>
           </aside>
         </div>
       </section>
+
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div
+            className="relative flex h-full max-h-screen w-full max-w-5xl flex-col items-center justify-center bg-black"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 z-50 rounded-full bg-white/20 p-2 text-white transition-colors hover:bg-white/40"
+              aria-label="Close modal"
+            >
+              <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            <img
+              src={galleryImages[currentImageIndex].src}
+              alt={galleryImages[currentImageIndex].alt}
+              className="max-h-full max-w-full object-contain"
+            />
+
+            <button
+              onClick={handlePrevImage}
+              className="absolute top-1/2 left-4 -translate-y-1/2 rounded-full bg-white/20 p-3 text-white transition-colors hover:bg-white/40"
+              aria-label="Previous image"
+            >
+              <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            <button
+              onClick={handleNextImage}
+              className="absolute top-1/2 right-4 -translate-y-1/2 rounded-full bg-white/20 p-3 text-white transition-colors hover:bg-white/40"
+              aria-label="Next image"
+            >
+              <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[14px] text-white/80" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {currentImageIndex + 1} / {galleryImages.length}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
