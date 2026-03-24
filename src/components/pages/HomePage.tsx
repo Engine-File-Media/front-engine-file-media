@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import portada from '../assets/FIGMA/FOTOGRAFIAS/Home/Portada.webp';
-import bgVideo from '../assets/FIGMA/Mockups/Background EFM.mp4';
+import portada from '../../assets/FIGMA/FOTOGRAFIAS/Home/Portada.webp';
+import bgVideo from '../../assets/FIGMA/Mockups/Background EFM.mp4';
 
 function HomePage() {
     const [email, setEmail] = useState('');
@@ -223,3 +223,4 @@ function HomePage() {
 }
 
 export default HomePage;
+

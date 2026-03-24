@@ -1,7 +1,8 @@
-import bookMockupCovers from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.webp';
-import indiceImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.webp';
-import capituloAudiImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
-import introduccionImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
+import { NavLink } from 'react-router-dom';
+import bookMockupCovers from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.webp';
+import indiceImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.webp';
+import capituloAudiImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
+import introduccionImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
 
 const keyThemes = [
     {
@@ -236,12 +237,13 @@ function Volume1Page() {
                         International shipping available.
                     </p>
 
-                    <button
-                        type="button"
-                        className="mt-8 inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-8 py-3 text-base font-semibold text-white"
+                    <NavLink
+                        to="/purchase"
+                        className="mt-8 inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-8 py-3 text-base font-semibold text-white no-underline"
+                        style={{ fontFamily: 'Inter, sans-serif' }}
                     >
                         Purchase Volume I
-                    </button>
+                    </NavLink>
                 </div>
             </section>
         </main>
@@ -249,3 +251,4 @@ function Volume1Page() {
 }
 
 export default Volume1Page;
+
