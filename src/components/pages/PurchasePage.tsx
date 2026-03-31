@@ -111,12 +111,20 @@ function PurchasePage() {
   );
 
   const displayCurrency = quote?.currency ?? selectedBook?.currency ?? 'USD';
-  const baseUnitPrice = quote?.pricing.effectiveUnitPrice ?? selectedBook?.effectivePrice ?? 90;
-  const fallbackProduct = baseUnitPrice * form.quantity;
+  const unitBasePrice = quote?.pricing.baseUnitPrice ?? selectedBook?.price ?? selectedBook?.effectivePrice ?? 0;
+  const unitEffectivePrice =
+    quote?.pricing.effectiveUnitPrice ?? selectedBook?.effectivePrice ?? selectedBook?.price ?? 0;
+  const saleActive =
+    Boolean(quote?.pricing.sale ?? selectedBook?.sale) &&
+    (quote?.pricing.discount ?? selectedBook?.discount ?? 0) > 0 &&
+    unitBasePrice > unitEffectivePrice;
+  const discountPercent = quote?.pricing.discount ?? selectedBook?.discount ?? 0;
+  const fallbackProduct = unitEffectivePrice * form.quantity;
   const summaryProduct = quote?.costs.product ?? fallbackProduct;
   const summaryShipping = quote?.costs.shipping ?? 0;
   const summaryTax = quote?.costs.tax ?? 0;
   const summaryTotal = quote?.costs.total ?? fallbackProduct;
+  const summaryDiscount = saleActive ? Math.max(unitBasePrice - unitEffectivePrice, 0) * form.quantity : 0;
 
   const handleNextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % galleryImages.length);
@@ -311,11 +319,23 @@ function PurchasePage() {
                   className="text-[13px] tracking-[1.4px] text-[#0A0A0A]/60 uppercase"
                   style={{ fontFamily: 'Inter, sans-serif' }}
                 >
-                  {isPricingLoading
-                    ? 'Loading price...'
-                    : `${displayCurrency} ${baseUnitPrice.toFixed(2)} each`}
+                  {isPricingLoading ? 'Loading price...' : `${displayCurrency} ${unitEffectivePrice.toFixed(2)} each`}
                 </p>
               </div>
+
+              {saleActive && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="text-[13px] text-[#0A0A0A]/50 line-through" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    {formatMoney(unitBasePrice, displayCurrency)}
+                  </span>
+                  <span className="text-[14px] font-semibold text-[#0A0A0A]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    {formatMoney(unitEffectivePrice, displayCurrency)}
+                  </span>
+                  <span className="rounded bg-[#F4E7E7] px-2 py-1 text-[11px] font-semibold tracking-[1px] text-[#7A1E1E] uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    {discountPercent}% OFF
+                  </span>
+                </div>
+              )}
 
               <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <label className="flex flex-col gap-2" htmlFor="volumeQty">
@@ -709,6 +729,12 @@ function PurchasePage() {
                   <span className="text-[#0A0A0A]/70">Tax</span>
                   <span className="text-[#0A0A0A]">{formatMoney(summaryTax, displayCurrency)}</span>
                 </div>
+                {saleActive && summaryDiscount > 0 && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[#0A0A0A]/70">Discount</span>
+                    <span className="text-[#7A1E1E]">-{formatMoney(summaryDiscount, displayCurrency)}</span>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 flex items-end justify-between">
