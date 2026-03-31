@@ -13,9 +13,9 @@ import JournalPage from './components/pages/JournalPage';
 import NotFoundPage from './components/pages/NotFoundPage';
 
 function App() {
-  const isHome = useLocation().pathname === '/';
-
   const { pathname } = useLocation();
+  const isHome = pathname === '/';
+  const isPurchaseFlow = pathname.startsWith('/purchase');
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -23,7 +23,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
+      <Navbar logoOnly={isPurchaseFlow} />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
@@ -34,7 +34,7 @@ function App() {
         <Route path="/journal" element={<JournalPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-      {isHome ? <Footer /> : <FooterGeneral />}
+      {!isPurchaseFlow && (isHome ? <Footer /> : <FooterGeneral />)}
     </div>
   );
 }

@@ -47,7 +47,10 @@ export type QuoteCosts = {
   fulfillment: number;
   handling: number;
   subtotal: number;
+  subtotalExclTax?: number;
   tax: number;
+  totalExclTax?: number;
+  totalInclTax?: number;
   total: number;
 };
 
