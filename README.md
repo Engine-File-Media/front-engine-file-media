@@ -1,80 +1,170 @@
-# React + TypeScript + Vite
+# Engine File Media - Volume Purchase System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend e-commerce para publicaciones tecnicas de motorsport. Esta aplicacion usa React, TypeScript y Vite, con integracion de pagos via PayPal y una arquitectura preparada para escalar a multiples volumenes.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Project Overview
 
-## React Compiler
+Engine File Media permite:
+- mostrar el catalogo de volumenes con galeria visual
+- cotizar costos de envio e impuestos por direccion
+- completar checkout con redireccion a PayPal
+- persistir datos clave de compra en localStorage
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+El alcance actual se centra en Volume I, pero la estructura esta orientada a evolucionar hacia rutas dinamicas tipo `/volumes/:volumeId`.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Architecture and File Structure
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+src/
+  api/
+    client.ts
+    payments.ts
+    types.ts
+  components/
+    layout/
+      Footer.tsx
+      FooterGeneral.tsx
+      Navbar.tsx
+      Navbar.css
+    pages/
+      AboutPage.tsx
+      HomePage.tsx
+      JournalPage.tsx
+      NotFoundPage.tsx
+      PurchaseCancelPage.tsx
+      PurchasePage.tsx
+      PurchaseReturnPage.tsx
+      Volume1Page.tsx
+  utils/
+    storage.ts
+  App.tsx
+  App.css
+  index.css
+  main.tsx
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Nota: se omiten detalles de `src/assets/` segun lo solicitado.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Main Components
+
+### Layout
+- `Navbar.tsx`: navegacion principal.
+- `Footer.tsx` y `FooterGeneral.tsx`: pie de pagina.
+
+### Pages
+- `HomePage.tsx`: portada y entrada al catalogo.
+- `Volume1Page.tsx`: detalle del volumen.
+- `PurchasePage.tsx`: formulario de compra, cotizacion y checkout.
+- `PurchaseReturnPage.tsx`: estado exitoso de regreso desde PayPal.
+- `PurchaseCancelPage.tsx`: cancelacion de pago.
+- `AboutPage.tsx` y `JournalPage.tsx`: contenido institucional/editorial.
+- `NotFoundPage.tsx`: fallback 404.
+
+---
+
+## Services
+
+### API Layer (`src/api`)
+- `client.ts`: cliente Axios.
+- `payments.ts`: operaciones principales del flujo de compra.
+  - `getBooksPricing()`
+  - `createQuote(payload)`
+  - `createCheckout(quoteId)`
+- `types.ts`: contratos de datos (`BookPricing`, `QuoteResponse`, `CheckoutResponse`, `OrderStatus`, etc.).
+
+### Storage Layer (`src/utils/storage.ts`)
+- persistencia de estado de compra
+- recuperacion con ventana de validez temporal
+- limpieza del estado almacenado
+
+---
+
+## Routes
+
+Rutas actuales:
+- `/` -> `HomePage`
+- `/volume-i` -> `Volume1Page`
+- `/purchase` -> `PurchasePage`
+- `/purchase/return` -> `PurchaseReturnPage`
+- `/purchase/cancel` -> `PurchaseCancelPage`
+- `/about` -> `AboutPage`
+- `/journal` -> `JournalPage`
+- `*` -> `NotFoundPage`
+
+Ruta objetivo de escalabilidad:
+- `/volumes/:volumeId`
+
+---
+
+## Technology Stack
+
+- React 18
+- TypeScript
+- Vite
+- React Router
+- Axios
+- Tailwind CSS
+- CSS tradicional (archivos locales)
+
+Integraciones externas:
+- PayPal (checkout)
+- backend de pricing/quote/checkout (via proxy `/api`)
+
+---
+
+## Local Development
+
+### Prerequisites
+- Node.js 18+
+- npm
+
+### Install
+```bash
+npm install
 ```
+
+### Run in dev mode
+```bash
+npm run dev
+```
+
+### Build
+```bash
+npm run build
+```
+
+### Preview build
+```bash
+npm run preview
+```
+
+### Lint
+```bash
+npm run lint
+```
+
+---
+
+## Purchase Flow Summary
+
+1. El usuario entra a `Volume1Page`.
+2. Continua a `PurchasePage`.
+3. Completa datos de envio y contacto.
+4. Se solicita una cotizacion al backend (`createQuote`).
+5. Se crea checkout (`createCheckout`) y se redirige a PayPal.
+6. El retorno se maneja en `PurchaseReturnPage` o `PurchaseCancelPage`.
+
+---
 
 ## Convertir PNG a WebP
 
-Para optimizar imágenes PNG a formato WebP en el directorio actual, usa este comando PowerShell:
+Para optimizar imagenes PNG a formato WebP en el directorio actual, usa este comando PowerShell:
 
 ```powershell
 Get-ChildItem *.png | ForEach-Object {
@@ -84,13 +174,19 @@ Get-ChildItem *.png | ForEach-Object {
 }
 ```
 
-### ¿Qué hace?
-1. **Get-ChildItem \*.png** — Obtiene todos los archivos PNG del directorio
-2. **ForEach-Object** — Itera sobre cada archivo PNG encontrado
-3. **$_.BaseName + ".webp"** — Crea el nombre del archivo de salida en WebP
-4. **magick** — Convierte PNG a WebP (ImageMagick)
-5. **Remove-Item** — Elimina el archivo PNG original tras la conversión
+### Que hace?
+1. `Get-ChildItem *.png` obtiene todos los PNG del directorio.
+2. `ForEach-Object` recorre cada archivo.
+3. `$_.BaseName + ".webp"` genera el nombre del archivo de salida.
+4. `magick` convierte PNG a WebP.
+5. `Remove-Item` elimina el PNG original.
 
 ### Herramientas requeridas
-- **[ImageMagick](https://imagemagick.org/)** — Motor de conversión de imágenes. Instala con: `choco install imagemagick` (requiere admin y Chocolatey)
-```
+- [ImageMagick](https://imagemagick.org/)
+- Instalacion sugerida en Windows: `choco install imagemagick`
+
+---
+
+## License
+
+Proprietary - Engine File Media
