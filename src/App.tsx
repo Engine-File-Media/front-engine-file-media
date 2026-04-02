@@ -29,8 +29,8 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/volume-i" element={<Volume1Page />} />
         <Route path="/purchase" element={<PurchasePage />} />
-        <Route path="/purchase/return" element={<PurchaseReturnPage />} />
-        <Route path="/purchase/cancel" element={<PurchaseCancelPage />} />
+        <Route path="/checkout/success" element={<PurchaseReturnPage />} />
+        <Route path="/checkout/cancel" element={<PurchaseCancelPage />} />
         <Route path="/journal" element={<JournalPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import bookMockupCovers from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.webp';
 import indiceImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.webp';
 import capituloAudiImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
 import introduccionImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
 import toyotaCelicaImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/TOYOTA-CELICA-ST205.webp';
-import { createCheckout, createQuote, getBooksPricing } from '../../api/payments';
-import type { ApiError, BookPricing, QuoteResponse } from '../../api/types';
+import { createCheckout, createQuote, getBooksPricing, getShippingOptions } from '../../api/payments';
+import type { ApiError, BookPricing, QuoteResponse, ShippingOption } from '../../api/types';
 import { savePurchaseState } from '../../utils/storage';
 
 const shippingInputClasses =
@@ -55,8 +55,9 @@ const luluCountries = [
   { code: 'VI', label: 'Virgin Islands, U.S.' },
 ] as const;
 
-const countriesRequiringStateCode = new Set<string>(luluCountries.map((country) => country.code));
+const countriesRequiringStateCode = new Set<string>(['US', 'CA', 'AU', 'BR', 'MX', 'IN', 'CN', 'JP']);
 const stateCodePattern = /^[A-Z0-9-]{1,10}$/;
+const phoneDashedPattern = /^\d{3}-\d{3}-\d{4}$/;
 
 type SubdivisionOption = {
   code: string;
@@ -373,7 +374,7 @@ const isoSubdivisionsByCountry: Record<string, readonly SubdivisionOption[]> = {
 const defaultCountryUi = {
   phoneCode: '+',
   phoneExample: '123 456 789',
-  stateLabel: 'State / Province code',
+  stateLabel: 'State / Province',
   statePlaceholder: 'CA, SP, NSW',
   addressLabel: 'Address',
   addressPlaceholder: 'Street and number',
@@ -452,6 +453,13 @@ const formatMoney = (value: number, currency: string) =>
   }).format(value);
 
 const clampQuantity = (value: number) => Math.min(maxQuantity, Math.max(1, value));
+const normalizePhoneToDashed = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 10) {
+    return value.trim();
+  }
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
 
 function PurchasePage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -469,15 +477,17 @@ function PurchasePage() {
     postalCode: '',
     country: 'US',
     phone: '',
-    shippingOption: 'PRIORITY_MAIL',
+    shippingOption: '',
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [lastQuotedFingerprint, setLastQuotedFingerprint] = useState<string | null>(null);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+  const [isShippingOptionsLoading, setIsShippingOptionsLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const [apiError, setApiError] = useState('');
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const selectedCountry = {
     ...defaultCountryUi,
     ...(countryUiOverrides[form.country] ?? {}),
@@ -487,27 +497,30 @@ function PurchasePage() {
   const requiresStateCode = countriesRequiringStateCode.has(form.country);
   const selectedSubdivisionCatalog = isoSubdivisionsByCountry[form.country] ?? null;
   const normalizedPhone = useMemo(() => {
-    const rawPhone = form.phone.trim();
-    if (!rawPhone) {
-      return '';
-    }
-    if (rawPhone.startsWith('+')) {
-      return rawPhone;
-    }
-    return `${selectedCountry.phoneCode} ${rawPhone}`;
-  }, [form.phone, selectedCountry.phoneCode]);
+    return normalizePhoneToDashed(form.phone);
+  }, [form.phone]);
 
   useEffect(() => {
     const loadPricing = async () => {
+      console.log('[PurchasePage] Loading book pricing...');
       try {
         const response = await getBooksPricing();
         const match =
           response.books.find((book) => book.id === defaultBookId) ??
           response.books[0] ??
           null;
+        console.log('[PurchasePage] Book pricing loaded:', {
+          bookId: match?.id,
+          price: match?.price,
+          currency: match?.currency,
+        });
         setSelectedBook(match);
       } catch (error) {
         const parsedError = error as ApiError;
+        console.error('[PurchasePage] Failed to load pricing:', {
+          message: parsedError.message,
+          status: parsedError.status,
+        });
         setApiError(parsedError.message || 'Unable to load pricing.');
       } finally {
         setIsPricingLoading(false);
@@ -624,6 +637,8 @@ function PurchasePage() {
 
     if (!form.phone.trim()) {
       nextErrors.phone = 'Phone is required.';
+    } else if (!phoneDashedPattern.test(normalizedPhone)) {
+      nextErrors.phone = 'Phone must use format XXX-XXX-XXXX.';
     }
 
     if (!Number.isFinite(form.quantity) || form.quantity < 1 || form.quantity > maxQuantity) {
@@ -631,11 +646,114 @@ function PurchasePage() {
     }
 
     setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    const isValid = Object.keys(nextErrors).length === 0;
+    
+    if (!isValid) {
+      console.warn('[PurchasePage] Form validation failed:', {
+        failedFields: Object.keys(nextErrors),
+        errors: nextErrors,
+      });
+    } else {
+      console.log('[PurchasePage] Form validation passed');
+    }
+    
+    return isValid;
   };
+
+  const canRequestShippingOptions =
+    Boolean(selectedBook?.id) &&
+    Number.isFinite(form.quantity) &&
+    form.quantity > 0 &&
+    Boolean(form.address1.trim()) &&
+    Boolean(form.city.trim()) &&
+    Boolean(form.postalCode.trim()) &&
+    Boolean(form.country.trim()) &&
+    (!requiresStateCode || Boolean(form.state.trim()));
+
+  const requestShippingOptions = useCallback(async () => {
+    if (!canRequestShippingOptions || !selectedBook) {
+      return;
+    }
+
+    setApiError('');
+    setIsShippingOptionsLoading(true);
+
+    try {
+      const trimmedState = form.state.trim();
+      const response = await getShippingOptions({
+        bookId: selectedBook.id,
+        address: {
+          line1: form.address1.trim(),
+          city: form.city.trim(),
+          postalCode: form.postalCode.trim(),
+          country: form.country,
+          ...(trimmedState ? { state: trimmedState.toUpperCase() } : {}),
+        },
+        quantity: form.quantity,
+        currency: selectedBook.currency,
+      });
+
+      const fetchedOptions = response.shippingOptions;
+      setShippingOptions(fetchedOptions);
+
+      if (fetchedOptions.length > 0 && !fetchedOptions.some((option) => option.level === form.shippingOption)) {
+        updateField('shippingOption', fetchedOptions[0].level);
+      }
+    } catch (error) {
+      const parsedError = error as ApiError;
+      console.error('[PurchasePage] Shipping options request failed:', {
+        message: parsedError.message,
+        status: parsedError.status,
+        details: parsedError.details,
+        requestData: { country: form.country, quantity: form.quantity },
+      });
+      setShippingOptions([]);
+      updateField('shippingOption', '');
+      setApiError(parsedError.message || 'Unable to load shipping options.');
+    } finally {
+      setIsShippingOptionsLoading(false);
+    }
+  }, [
+    canRequestShippingOptions,
+    form.address1,
+    form.city,
+    form.country,
+    form.postalCode,
+    form.quantity,
+    form.shippingOption,
+    form.state,
+    selectedBook,
+  ]);
+
+  useEffect(() => {
+    if (!canRequestShippingOptions) {
+      setShippingOptions([]);
+      if (form.shippingOption) {
+        updateField('shippingOption', '');
+      }
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void requestShippingOptions();
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    canRequestShippingOptions,
+    form.shippingOption,
+    requestShippingOptions,
+  ]);
 
   const requestQuote = async () => {
     if (!validateForm()) {
+      return null;
+    }
+
+    if (!form.shippingOption) {
+      setErrors((prev) => ({ ...prev, shippingOption: 'Select a shipping option.' }));
       return null;
     }
 
@@ -662,12 +780,21 @@ function PurchasePage() {
         currency: displayCurrency,
       });
 
+      console.log('[PurchasePage] Quote created successfully:', {
+        quoteId: quoteResponse.quoteId,
+        total: quoteResponse.costs.total,
+      });
       setQuote(quoteResponse);
       setLastQuotedFingerprint(quoteFingerprint);
       setNotice('Quote generated successfully. You can continue to PayPal.');
       return quoteResponse;
     } catch (error) {
       const parsedError = error as ApiError;
+      console.error('[PurchasePage] Quote creation failed:', {
+        message: parsedError.message,
+        status: parsedError.status,
+        details: parsedError.details,
+      });
       setApiError(parsedError.message || 'Unable to calculate quote.');
       return null;
     } finally {
@@ -675,13 +802,9 @@ function PurchasePage() {
     }
   };
 
-  const handleQuoteSubmit = async (event: FormEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    await requestQuote();
-  };
-
   const handleCheckoutSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.log('[PurchasePage] Checkout submit initiated');
 
     if (isCheckoutLoading) {
       return;
@@ -692,10 +815,12 @@ function PurchasePage() {
 
     let activeQuote = quote;
     if (!activeQuote || lastQuotedFingerprint !== quoteFingerprint) {
+      console.log('[PurchasePage] Requesting fresh quote before checkout');
       activeQuote = await requestQuote();
     }
 
     if (!activeQuote) {
+      console.warn('[PurchasePage] No active quote after requestQuote');
       return;
     }
 
@@ -703,6 +828,10 @@ function PurchasePage() {
 
     try {
       const checkout = await createCheckout(activeQuote.quoteId);
+      console.log('[PurchasePage] Checkout created successfully:', {
+        quoteId: activeQuote.quoteId,
+        paypalOrderId: checkout.paypalOrderId,
+      });
       savePurchaseState({
         quoteId: activeQuote.quoteId,
         orderId: checkout.orderId,
@@ -711,6 +840,12 @@ function PurchasePage() {
       window.location.assign(checkout.approveUrl);
     } catch (error) {
       const parsedError = error as ApiError;
+      console.error('[PurchasePage] Checkout creation failed:', {
+        message: parsedError.message,
+        status: parsedError.status,
+        details: parsedError.details,
+        quoteId: activeQuote.quoteId,
+      });
       setApiError(parsedError.message || 'Unable to start PayPal checkout.');
     } finally {
       setIsCheckoutLoading(false);
@@ -982,7 +1117,7 @@ function PurchasePage() {
                       value={form.state}
                       onChange={(event) => updateField('state', event.target.value)}
                     >
-                      <option value="">Select code</option>
+                      <option value="">Select</option>
                       {selectedSubdivisionCatalog.map((subdivision) => (
                         <option key={subdivision.code} value={subdivision.code}>
                           {subdivision.code} - {subdivision.name}
@@ -1002,7 +1137,7 @@ function PurchasePage() {
                   )}
                   {requiresStateCode && (
                     <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
-                      Required for {selectedCountryLabel}. Use ISO-3166-2 subdivision code.
+                      Required for {selectedCountryLabel}.
                     </span>
                   )}
                   {errors.state && (
@@ -1069,12 +1204,12 @@ function PurchasePage() {
                     name="phone"
                     type="tel"
                     className={shippingInputClasses}
-                    placeholder={`${selectedCountry.phoneCode} ${selectedCountry.phoneExample}`}
+                    placeholder="555-123-4567"
                     value={form.phone}
                     onChange={(event) => updateField('phone', event.target.value)}
                   />
                   <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    Country code for {selectedCountryLabel}: {selectedCountry.phoneCode}
+                    XXX-XXX-XXXX
                   </span>
                   {errors.phone && (
                     <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -1093,19 +1228,45 @@ function PurchasePage() {
                     className={shippingInputClasses}
                     value={form.shippingOption}
                     onChange={(event) => updateField('shippingOption', event.target.value)}
+                    disabled={isShippingOptionsLoading || shippingOptions.length === 0}
                   >
-                    <option value="PRIORITY_MAIL">PRIORITY_MAIL</option>
-                    <option value="MAIL">MAIL</option>
-                    <option value="EXPRESS">EXPRESS</option>
+                    {isShippingOptionsLoading && <option value="">Loading shipping options...</option>}
+                    {!isShippingOptionsLoading && shippingOptions.length === 0 && (
+                      <option value="">Fill address to load options</option>
+                    )}
+                    {shippingOptions.map((option) => {
+                      const optionPrice = Number(option.costExclTax);
+                      const formattedOptionPrice = Number.isNaN(optionPrice)
+                        ? `${option.costExclTax} ${option.currency}`
+                        : formatMoney(optionPrice, option.currency);
+                      const trackingLabel = option.traceable ? 'Trackable' : 'No tracking';
+                      const deliveryLabel = `${option.totalDaysMin}-${option.totalDaysMax} business days`;
+                      return (
+                        <option key={`${option.id}-${option.level}`} value={option.level}>
+                          {`${option.level} | ${formattedOptionPrice} | ${trackingLabel} | ${deliveryLabel}`}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {shippingOptions.length > 0 && (
+                    <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+                      Includes estimated delivery and tracking availability per option.
+                    </span>
+                  )}
                 </label>
+              </div>
+
+              <div className="mt-5 border border-black/10 bg-[#F9F9F9] px-4 py-3">
+                <p className="text-[13px] leading-[1.4] text-[#0A0A0A]/70" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  Shipping options are loaded automatically when the address is complete. Generate the quote to see the full cost breakdown.
+                </p>
               </div>
 
               <div className="mt-5">
                 <button
                   type="button"
-                  onClick={handleQuoteSubmit}
-                  disabled={isQuoteLoading || isCheckoutLoading || isPricingLoading}
+                  onClick={() => void requestQuote()}
+                  disabled={isPricingLoading || isQuoteLoading || isCheckoutLoading || !form.shippingOption}
                   className="inline-flex w-full items-center justify-center border border-black/15 bg-white px-6 py-3 text-[13px] font-semibold tracking-[1.6px] text-[#0A0A0A] uppercase disabled:cursor-not-allowed disabled:opacity-50"
                   style={{ fontFamily: 'Inter, sans-serif' }}
                 >

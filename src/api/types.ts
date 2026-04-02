@@ -41,6 +41,13 @@ export type CreateQuoteRequest = {
   currency?: CurrencyCode;
 };
 
+export type CreateShippingOptionsRequest = {
+  bookId: string;
+  address: QuoteAddressInput;
+  quantity: number;
+  currency?: CurrencyCode;
+};
+
 export type QuoteCosts = {
   product: number;
   shipping: number;
@@ -84,6 +91,30 @@ export type QuoteResponse = {
   costs: QuoteCosts;
   quantity: number;
   currency: CurrencyCode;
+};
+
+export type ShippingOption = {
+  id: number;
+  level: string;
+  currency: CurrencyCode;
+  costExclTax: string;
+  minDeliveryDate: string;
+  maxDeliveryDate: string;
+  minDispatchDate: string;
+  maxDispatchDate: string;
+  totalDaysMin: number;
+  totalDaysMax: number;
+  transitTime: number;
+  traceable: boolean;
+  postboxOk: boolean;
+  businessOnly: boolean;
+  homeOnly: boolean;
+};
+
+export type ShippingOptionsResponse = {
+  quoteId?: string;
+  currency: CurrencyCode;
+  shippingOptions: ShippingOption[];
 };
 
 export type CreateCheckoutRequest = {
