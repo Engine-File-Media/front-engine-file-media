@@ -5,6 +5,8 @@ export type PurchaseStorageState = {
   quoteId: string;
   orderId: string;
   paypalOrderId: string;
+  phoneE164?: string;
+  contactEmail?: string;
   savedAt: number;
 };
 

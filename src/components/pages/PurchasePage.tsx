@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import bookMockupCovers from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.webp';
 import indiceImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.webp';
 import capituloAudiImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
 import introduccionImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
 import toyotaCelicaImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/TOYOTA-CELICA-ST205.webp';
-import { createCheckout, createQuote, getBooksPricing, getShippingOptions } from '../../api/payments';
-import type { ApiError, BookPricing, QuoteResponse, ShippingOption } from '../../api/types';
+import { createCheckout, createQuote, getAddressMetadata, getBooksPricing, getShippingOptions } from '../../api/payments';
+import type { AddressMetadataResponse, ApiError, BookPricing, QuoteResponse, ShippingOption } from '../../api/types';
+import { formatPhoneForInput, getPhonePlaceholderByCountry, normalizePhoneToE164 } from '../../utils/phone';
 import { savePurchaseState } from '../../utils/storage';
 
 const shippingInputClasses =
@@ -15,410 +16,22 @@ const shippingInputClasses =
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const defaultBookId = 'volume-i';
 const maxQuantity = 50;
-
-const luluCountries = [
-  { code: 'AE', label: 'United Arab Emirates' },
-  { code: 'AS', label: 'American Samoa' },
-  { code: 'AU', label: 'Australia' },
-  { code: 'BR', label: 'Brazil' },
-  { code: 'CA', label: 'Canada' },
-  { code: 'CN', label: 'China' },
-  { code: 'CO', label: 'Colombia' },
-  { code: 'CR', label: 'Costa Rica' },
-  { code: 'KY', label: 'Cayman Islands' },
-  { code: 'ES', label: 'Spain' },
-  { code: 'FM', label: 'Micronesia' },
-  { code: 'HK', label: 'Hong Kong' },
-  { code: 'HN', label: 'Honduras' },
-  { code: 'ID', label: 'Indonesia' },
-  { code: 'IN', label: 'India' },
-  { code: 'IQ', label: 'Iraq' },
-  { code: 'IT', label: 'Italy' },
-  { code: 'JM', label: 'Jamaica' },
-  { code: 'JP', label: 'Japan' },
-  { code: 'KN', label: 'Saint Kitts and Nevis' },
-  { code: 'KR', label: 'Korea' },
-  { code: 'MX', label: 'Mexico' },
-  { code: 'MH', label: 'Marshall Islands' },
-  { code: 'MP', label: 'Northern Mariana Islands' },
-  { code: 'NR', label: 'Nauru' },
-  { code: 'PW', label: 'Palau' },
-  { code: 'PG', label: 'Papua New Guinea' },
-  { code: 'PF', label: 'French Polynesia' },
-  { code: 'RU', label: 'Russian Federation' },
-  { code: 'SV', label: 'El Salvador' },
-  { code: 'SO', label: 'Somalia' },
-  { code: 'TW', label: 'Taiwan' },
-  { code: 'UM', label: 'United States Minor Outlying Islands' },
-  { code: 'US', label: 'United States' },
-  { code: 'VE', label: 'Venezuela' },
-  { code: 'VI', label: 'Virgin Islands, U.S.' },
-] as const;
-
-const countriesRequiringStateCode = new Set<string>(['US', 'CA', 'AU', 'BR', 'MX', 'IN', 'CN', 'JP']);
 const stateCodePattern = /^[A-Z0-9-]{1,10}$/;
-const phoneDashedPattern = /^\d{3}-\d{3}-\d{4}$/;
 
-type SubdivisionOption = {
-  code: string;
-  name: string;
-};
-
-const isoSubdivisionsByCountry: Record<string, readonly SubdivisionOption[]> = {
-  US: [
-    { code: 'AL', name: 'Alabama' },
-    { code: 'AK', name: 'Alaska' },
-    { code: 'AZ', name: 'Arizona' },
-    { code: 'AR', name: 'Arkansas' },
-    { code: 'CA', name: 'California' },
-    { code: 'CO', name: 'Colorado' },
-    { code: 'CT', name: 'Connecticut' },
-    { code: 'DE', name: 'Delaware' },
-    { code: 'FL', name: 'Florida' },
-    { code: 'GA', name: 'Georgia' },
-    { code: 'HI', name: 'Hawaii' },
-    { code: 'ID', name: 'Idaho' },
-    { code: 'IL', name: 'Illinois' },
-    { code: 'IN', name: 'Indiana' },
-    { code: 'IA', name: 'Iowa' },
-    { code: 'KS', name: 'Kansas' },
-    { code: 'KY', name: 'Kentucky' },
-    { code: 'LA', name: 'Louisiana' },
-    { code: 'ME', name: 'Maine' },
-    { code: 'MD', name: 'Maryland' },
-    { code: 'MA', name: 'Massachusetts' },
-    { code: 'MI', name: 'Michigan' },
-    { code: 'MN', name: 'Minnesota' },
-    { code: 'MS', name: 'Mississippi' },
-    { code: 'MO', name: 'Missouri' },
-    { code: 'MT', name: 'Montana' },
-    { code: 'NE', name: 'Nebraska' },
-    { code: 'NV', name: 'Nevada' },
-    { code: 'NH', name: 'New Hampshire' },
-    { code: 'NJ', name: 'New Jersey' },
-    { code: 'NM', name: 'New Mexico' },
-    { code: 'NY', name: 'New York' },
-    { code: 'NC', name: 'North Carolina' },
-    { code: 'ND', name: 'North Dakota' },
-    { code: 'OH', name: 'Ohio' },
-    { code: 'OK', name: 'Oklahoma' },
-    { code: 'OR', name: 'Oregon' },
-    { code: 'PA', name: 'Pennsylvania' },
-    { code: 'RI', name: 'Rhode Island' },
-    { code: 'SC', name: 'South Carolina' },
-    { code: 'SD', name: 'South Dakota' },
-    { code: 'TN', name: 'Tennessee' },
-    { code: 'TX', name: 'Texas' },
-    { code: 'UT', name: 'Utah' },
-    { code: 'VT', name: 'Vermont' },
-    { code: 'VA', name: 'Virginia' },
-    { code: 'WA', name: 'Washington' },
-    { code: 'WV', name: 'West Virginia' },
-    { code: 'WI', name: 'Wisconsin' },
-    { code: 'WY', name: 'Wyoming' },
-    { code: 'DC', name: 'District of Columbia' },
-  ],
-  MX: [
-    { code: 'AGU', name: 'Aguascalientes' },
-    { code: 'BCN', name: 'Baja California' },
-    { code: 'BCS', name: 'Baja California Sur' },
-    { code: 'CAM', name: 'Campeche' },
-    { code: 'CHH', name: 'Chihuahua' },
-    { code: 'CHP', name: 'Chiapas' },
-    { code: 'CMX', name: 'Ciudad de Mexico' },
-    { code: 'COA', name: 'Coahuila' },
-    { code: 'COL', name: 'Colima' },
-    { code: 'DUR', name: 'Durango' },
-    { code: 'GRO', name: 'Guerrero' },
-    { code: 'GUA', name: 'Guanajuato' },
-    { code: 'HID', name: 'Hidalgo' },
-    { code: 'JAL', name: 'Jalisco' },
-    { code: 'MEX', name: 'Estado de Mexico' },
-    { code: 'MIC', name: 'Michoacan' },
-    { code: 'MOR', name: 'Morelos' },
-    { code: 'NAY', name: 'Nayarit' },
-    { code: 'NLE', name: 'Nuevo Leon' },
-    { code: 'OAX', name: 'Oaxaca' },
-    { code: 'PUE', name: 'Puebla' },
-    { code: 'QUE', name: 'Queretaro' },
-    { code: 'ROO', name: 'Quintana Roo' },
-    { code: 'SIN', name: 'Sinaloa' },
-    { code: 'SLP', name: 'San Luis Potosi' },
-    { code: 'SON', name: 'Sonora' },
-    { code: 'TAB', name: 'Tabasco' },
-    { code: 'TAM', name: 'Tamaulipas' },
-    { code: 'TLA', name: 'Tlaxcala' },
-    { code: 'VER', name: 'Veracruz' },
-    { code: 'YUC', name: 'Yucatan' },
-    { code: 'ZAC', name: 'Zacatecas' },
-  ],
-  BR: [
-    { code: 'AC', name: 'Acre' },
-    { code: 'AL', name: 'Alagoas' },
-    { code: 'AP', name: 'Amapa' },
-    { code: 'AM', name: 'Amazonas' },
-    { code: 'BA', name: 'Bahia' },
-    { code: 'CE', name: 'Ceara' },
-    { code: 'DF', name: 'Distrito Federal' },
-    { code: 'ES', name: 'Espirito Santo' },
-    { code: 'GO', name: 'Goias' },
-    { code: 'MA', name: 'Maranhao' },
-    { code: 'MT', name: 'Mato Grosso' },
-    { code: 'MS', name: 'Mato Grosso do Sul' },
-    { code: 'MG', name: 'Minas Gerais' },
-    { code: 'PA', name: 'Para' },
-    { code: 'PB', name: 'Paraiba' },
-    { code: 'PR', name: 'Parana' },
-    { code: 'PE', name: 'Pernambuco' },
-    { code: 'PI', name: 'Piaui' },
-    { code: 'RJ', name: 'Rio de Janeiro' },
-    { code: 'RN', name: 'Rio Grande do Norte' },
-    { code: 'RS', name: 'Rio Grande do Sul' },
-    { code: 'RO', name: 'Rondonia' },
-    { code: 'RR', name: 'Roraima' },
-    { code: 'SC', name: 'Santa Catarina' },
-    { code: 'SP', name: 'Sao Paulo' },
-    { code: 'SE', name: 'Sergipe' },
-    { code: 'TO', name: 'Tocantins' },
-  ],
-  CA: [
-    { code: 'AB', name: 'Alberta' },
-    { code: 'BC', name: 'British Columbia' },
-    { code: 'MB', name: 'Manitoba' },
-    { code: 'NB', name: 'New Brunswick' },
-    { code: 'NL', name: 'Newfoundland and Labrador' },
-    { code: 'NS', name: 'Nova Scotia' },
-    { code: 'NT', name: 'Northwest Territories' },
-    { code: 'NU', name: 'Nunavut' },
-    { code: 'ON', name: 'Ontario' },
-    { code: 'PE', name: 'Prince Edward Island' },
-    { code: 'QC', name: 'Quebec' },
-    { code: 'SK', name: 'Saskatchewan' },
-    { code: 'YT', name: 'Yukon' },
-  ],
-  AU: [
-    { code: 'ACT', name: 'Australian Capital Territory' },
-    { code: 'NSW', name: 'New South Wales' },
-    { code: 'NT', name: 'Northern Territory' },
-    { code: 'QLD', name: 'Queensland' },
-    { code: 'SA', name: 'South Australia' },
-    { code: 'TAS', name: 'Tasmania' },
-    { code: 'VIC', name: 'Victoria' },
-    { code: 'WA', name: 'Western Australia' },
-  ],
-  ES: [
-    { code: 'AN', name: 'Andalucia' },
-    { code: 'AR', name: 'Aragon' },
-    { code: 'AS', name: 'Asturias' },
-    { code: 'IB', name: 'Balearic Islands' },
-    { code: 'CN', name: 'Canary Islands' },
-    { code: 'CB', name: 'Cantabria' },
-    { code: 'CL', name: 'Castile and Leon' },
-    { code: 'CM', name: 'Castilla-La Mancha' },
-    { code: 'CT', name: 'Catalonia' },
-    { code: 'CE', name: 'Ceuta' },
-    { code: 'EX', name: 'Extremadura' },
-    { code: 'GA', name: 'Galicia' },
-    { code: 'RI', name: 'La Rioja' },
-    { code: 'MD', name: 'Madrid' },
-    { code: 'ML', name: 'Melilla' },
-    { code: 'MC', name: 'Murcia' },
-    { code: 'NC', name: 'Navarre' },
-    { code: 'PV', name: 'Basque Country' },
-    { code: 'VC', name: 'Valencian Community' },
-  ],
-  IT: [
-    { code: 'ABR', name: 'Abruzzo' },
-    { code: 'BAS', name: 'Basilicata' },
-    { code: 'CAL', name: 'Calabria' },
-    { code: 'CAM', name: 'Campania' },
-    { code: 'EMR', name: 'Emilia-Romagna' },
-    { code: 'FVG', name: 'Friuli Venezia Giulia' },
-    { code: 'LAZ', name: 'Lazio' },
-    { code: 'LIG', name: 'Liguria' },
-    { code: 'LOM', name: 'Lombardy' },
-    { code: 'MAR', name: 'Marche' },
-    { code: 'MOL', name: 'Molise' },
-    { code: 'PMN', name: 'Piedmont' },
-    { code: 'PUG', name: 'Apulia' },
-    { code: 'SAR', name: 'Sardinia' },
-    { code: 'SIC', name: 'Sicily' },
-    { code: 'TOS', name: 'Tuscany' },
-    { code: 'TAA', name: 'Trentino-Alto Adige' },
-    { code: 'UMB', name: 'Umbria' },
-    { code: 'VDA', name: 'Aosta Valley' },
-    { code: 'VEN', name: 'Veneto' },
-  ],
-  JP: [
-    { code: '01', name: 'Hokkaido' },
-    { code: '02', name: 'Aomori' },
-    { code: '03', name: 'Iwate' },
-    { code: '04', name: 'Miyagi' },
-    { code: '05', name: 'Akita' },
-    { code: '06', name: 'Yamagata' },
-    { code: '07', name: 'Fukushima' },
-    { code: '08', name: 'Ibaraki' },
-    { code: '09', name: 'Tochigi' },
-    { code: '10', name: 'Gunma' },
-    { code: '11', name: 'Saitama' },
-    { code: '12', name: 'Chiba' },
-    { code: '13', name: 'Tokyo' },
-    { code: '14', name: 'Kanagawa' },
-    { code: '15', name: 'Niigata' },
-    { code: '16', name: 'Toyama' },
-    { code: '17', name: 'Ishikawa' },
-    { code: '18', name: 'Fukui' },
-    { code: '19', name: 'Yamanashi' },
-    { code: '20', name: 'Nagano' },
-    { code: '21', name: 'Gifu' },
-    { code: '22', name: 'Shizuoka' },
-    { code: '23', name: 'Aichi' },
-    { code: '24', name: 'Mie' },
-    { code: '25', name: 'Shiga' },
-    { code: '26', name: 'Kyoto' },
-    { code: '27', name: 'Osaka' },
-    { code: '28', name: 'Hyogo' },
-    { code: '29', name: 'Nara' },
-    { code: '30', name: 'Wakayama' },
-    { code: '31', name: 'Tottori' },
-    { code: '32', name: 'Shimane' },
-    { code: '33', name: 'Okayama' },
-    { code: '34', name: 'Hiroshima' },
-    { code: '35', name: 'Yamaguchi' },
-    { code: '36', name: 'Tokushima' },
-    { code: '37', name: 'Kagawa' },
-    { code: '38', name: 'Ehime' },
-    { code: '39', name: 'Kochi' },
-    { code: '40', name: 'Fukuoka' },
-    { code: '41', name: 'Saga' },
-    { code: '42', name: 'Nagasaki' },
-    { code: '43', name: 'Kumamoto' },
-    { code: '44', name: 'Oita' },
-    { code: '45', name: 'Miyazaki' },
-    { code: '46', name: 'Kagoshima' },
-    { code: '47', name: 'Okinawa' },
-  ],
-  IN: [
-    { code: 'AN', name: 'Andaman and Nicobar Islands' },
-    { code: 'AP', name: 'Andhra Pradesh' },
-    { code: 'AR', name: 'Arunachal Pradesh' },
-    { code: 'AS', name: 'Assam' },
-    { code: 'BR', name: 'Bihar' },
-    { code: 'CH', name: 'Chandigarh' },
-    { code: 'CT', name: 'Chhattisgarh' },
-    { code: 'DH', name: 'Dadra and Nagar Haveli and Daman and Diu' },
-    { code: 'DL', name: 'Delhi' },
-    { code: 'GA', name: 'Goa' },
-    { code: 'GJ', name: 'Gujarat' },
-    { code: 'HP', name: 'Himachal Pradesh' },
-    { code: 'HR', name: 'Haryana' },
-    { code: 'JH', name: 'Jharkhand' },
-    { code: 'JK', name: 'Jammu and Kashmir' },
-    { code: 'KA', name: 'Karnataka' },
-    { code: 'KL', name: 'Kerala' },
-    { code: 'LA', name: 'Ladakh' },
-    { code: 'LD', name: 'Lakshadweep' },
-    { code: 'MH', name: 'Maharashtra' },
-    { code: 'ML', name: 'Meghalaya' },
-    { code: 'MN', name: 'Manipur' },
-    { code: 'MP', name: 'Madhya Pradesh' },
-    { code: 'MZ', name: 'Mizoram' },
-    { code: 'NL', name: 'Nagaland' },
-    { code: 'OD', name: 'Odisha' },
-    { code: 'PB', name: 'Punjab' },
-    { code: 'PY', name: 'Puducherry' },
-    { code: 'RJ', name: 'Rajasthan' },
-    { code: 'SK', name: 'Sikkim' },
-    { code: 'TG', name: 'Telangana' },
-    { code: 'TN', name: 'Tamil Nadu' },
-    { code: 'TR', name: 'Tripura' },
-    { code: 'UP', name: 'Uttar Pradesh' },
-    { code: 'UT', name: 'Uttarakhand' },
-    { code: 'WB', name: 'West Bengal' },
-  ],
-  CN: [
-    { code: '11', name: 'Beijing' },
-    { code: '12', name: 'Tianjin' },
-    { code: '13', name: 'Hebei' },
-    { code: '14', name: 'Shanxi' },
-    { code: '15', name: 'Inner Mongolia' },
-    { code: '21', name: 'Liaoning' },
-    { code: '22', name: 'Jilin' },
-    { code: '23', name: 'Heilongjiang' },
-    { code: '31', name: 'Shanghai' },
-    { code: '32', name: 'Jiangsu' },
-    { code: '33', name: 'Zhejiang' },
-    { code: '34', name: 'Anhui' },
-    { code: '35', name: 'Fujian' },
-    { code: '36', name: 'Jiangxi' },
-    { code: '37', name: 'Shandong' },
-    { code: '41', name: 'Henan' },
-    { code: '42', name: 'Hubei' },
-    { code: '43', name: 'Hunan' },
-    { code: '44', name: 'Guangdong' },
-    { code: '45', name: 'Guangxi' },
-    { code: '46', name: 'Hainan' },
-    { code: '50', name: 'Chongqing' },
-    { code: '51', name: 'Sichuan' },
-    { code: '52', name: 'Guizhou' },
-    { code: '53', name: 'Yunnan' },
-    { code: '54', name: 'Xizang' },
-    { code: '61', name: 'Shaanxi' },
-    { code: '62', name: 'Gansu' },
-    { code: '63', name: 'Qinghai' },
-    { code: '64', name: 'Ningxia' },
-    { code: '65', name: 'Xinjiang' },
-  ],
-};
-
-const defaultCountryUi = {
-  phoneCode: '+',
-  phoneExample: '123 456 789',
-  stateLabel: 'State / Province',
-  statePlaceholder: 'CA, SP, NSW',
-  addressLabel: 'Address',
-  addressPlaceholder: 'Street and number',
-  postalLabel: 'Postal code',
-  postalPlaceholder: 'Postal code',
-};
-
-const countryUiOverrides: Record<string, Partial<typeof defaultCountryUi>> = {
-  AE: { phoneCode: '+971' },
-  AS: { phoneCode: '+1' },
-  AU: { phoneCode: '+61' },
-  BR: { phoneCode: '+55', postalLabel: 'CEP', postalPlaceholder: '01310-100' },
-  CA: { phoneCode: '+1', postalPlaceholder: 'M5V 2T6' },
-  CN: { phoneCode: '+86' },
-  CO: { phoneCode: '+57' },
-  CR: { phoneCode: '+506' },
-  ES: { phoneCode: '+34', postalPlaceholder: '28001' },
-  FM: { phoneCode: '+691' },
-  HK: { phoneCode: '+852' },
-  HN: { phoneCode: '+504' },
-  ID: { phoneCode: '+62' },
-  IN: { phoneCode: '+91' },
-  IQ: { phoneCode: '+964' },
-  IT: { phoneCode: '+39' },
-  JM: { phoneCode: '+1' },
-  JP: { phoneCode: '+81' },
-  KN: { phoneCode: '+1' },
-  KR: { phoneCode: '+82' },
-  KY: { phoneCode: '+1' },
-  MH: { phoneCode: '+692' },
-  MP: { phoneCode: '+1' },
-  MX: { phoneCode: '+52' },
-  NR: { phoneCode: '+674' },
-  PF: { phoneCode: '+689' },
-  PG: { phoneCode: '+675' },
-  PW: { phoneCode: '+680' },
-  RU: { phoneCode: '+7' },
-  SO: { phoneCode: '+252' },
-  SV: { phoneCode: '+503' },
-  TW: { phoneCode: '+886' },
-  UM: { phoneCode: '+1' },
-  US: { phoneCode: '+1', postalLabel: 'ZIP code', postalPlaceholder: '90210', statePlaceholder: 'CA' },
-  VE: { phoneCode: '+58' },
-  VI: { phoneCode: '+1' },
+type FormState = {
+  quantity: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  address1: string;
+  address2: string;
+  recipientTaxId: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phone: string;
+  shippingOption: string;
 };
 
 const galleryImages = [
@@ -428,20 +41,6 @@ const galleryImages = [
   { src: introduccionImage, alt: 'Volume I - Introduction spread' },
   { src: toyotaCelicaImage, alt: 'Volume I - Toyota Celica ST205 spread' },
 ];
-
-type FormState = {
-  quantity: number;
-  email: string;
-  firstName: string;
-  lastName: string;
-  address1: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-  phone: string;
-  shippingOption: string;
-};
 
 type FieldErrors = Partial<Record<keyof FormState, string>>;
 
@@ -453,12 +52,69 @@ const formatMoney = (value: number, currency: string) =>
   }).format(value);
 
 const clampQuantity = (value: number) => Math.min(maxQuantity, Math.max(1, value));
-const normalizePhoneToDashed = (value: string) => {
-  const digits = value.replace(/\D/g, '');
-  if (digits.length !== 10) {
-    return value.trim();
+
+const normalizeRecipientTaxIdForPayload = (countryCode: string, value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
   }
-  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+
+  if (countryCode === 'CL') {
+    return trimmed.toUpperCase().replace(/[^0-9K]/g, '');
+  }
+
+  if (countryCode === 'BR') {
+    return trimmed.replace(/\D/g, '');
+  }
+
+  if (countryCode === 'MX') {
+    return trimmed.toUpperCase().replace(/\s+/g, '');
+  }
+
+  return trimmed;
+};
+
+const formatRecipientTaxIdForInput = (countryCode: string, value: string) => {
+  if (countryCode === 'CL') {
+    const cleaned = value.toUpperCase().replace(/[^0-9K]/g, '');
+    if (cleaned.length <= 1) {
+      return cleaned;
+    }
+
+    const verifier = cleaned.slice(-1);
+    const body = cleaned.slice(0, -1);
+    const withDots = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${withDots}-${verifier}`;
+  }
+
+  if (countryCode === 'BR') {
+    const digits = value.replace(/\D/g, '').slice(0, 14);
+    if (digits.length <= 11) {
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+      if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+    }
+
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+    if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+    if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  }
+
+  if (countryCode === 'MX') {
+    return value.toUpperCase().replace(/[^A-Z0-9&]/g, '').slice(0, 13);
+  }
+
+  return value;
+};
+
+const getRecipientTaxIdUxHint = (countryCode: string) => {
+  if (countryCode === 'CL') return 'Format: 12.345.678-5';
+  if (countryCode === 'BR') return 'Format: CPF 000.000.000-00 or CNPJ 00.000.000/0000-00';
+  if (countryCode === 'MX') return 'Format: RFC (e.g. ABCD010101ABC)';
+  return 'Enter the tax identifier exactly as issued.';
 };
 
 function PurchasePage() {
@@ -472,6 +128,8 @@ function PurchasePage() {
     firstName: '',
     lastName: '',
     address1: '',
+    address2: '',
+    recipientTaxId: '',
     city: '',
     state: '',
     postalCode: '',
@@ -480,6 +138,8 @@ function PurchasePage() {
     shippingOption: '',
   });
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [addressMetadata, setAddressMetadata] = useState<AddressMetadataResponse | null>(null);
+  const [isMetadataLoading, setIsMetadataLoading] = useState(false);
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [lastQuotedFingerprint, setLastQuotedFingerprint] = useState<string | null>(null);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
@@ -488,26 +148,33 @@ function PurchasePage() {
   const [notice, setNotice] = useState('');
   const [apiError, setApiError] = useState('');
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
-  const selectedCountry = {
-    ...defaultCountryUi,
-    ...(countryUiOverrides[form.country] ?? {}),
-  };
+  const previousShippingOptionRef = useRef(form.shippingOption);
   const selectedCountryLabel =
-    luluCountries.find((country) => country.code === form.country)?.label ?? 'Selected country';
-  const requiresStateCode = countriesRequiringStateCode.has(form.country);
-  const selectedSubdivisionCatalog = isoSubdivisionsByCountry[form.country] ?? null;
-  const normalizedPhone = useMemo(() => {
-    return normalizePhoneToDashed(form.phone);
-  }, [form.phone]);
+    addressMetadata?.countries.find((country) => country.code === form.country)?.name ?? 'Selected country';
+  const requiresStateCode = addressMetadata?.fields.requiresState ?? false;
+  const requiresRecipientTaxId = addressMetadata?.fields.requiresRecipientTaxId ?? false;
+  const selectedSubdivisionCatalog = useMemo(() => {
+    return addressMetadata?.subdivisions ?? [];
+  }, [addressMetadata?.subdivisions]);
+  const normalizedPhoneE164 = useMemo(() => {
+    return normalizePhoneToE164(form.phone, form.country);
+  }, [form.country, form.phone]);
+  const phonePlaceholder = useMemo(() => {
+    return getPhonePlaceholderByCountry(form.country);
+  }, [form.country]);
+  const normalizedRecipientTaxId = useMemo(() => {
+    return normalizeRecipientTaxIdForPayload(form.country, form.recipientTaxId);
+  }, [form.country, form.recipientTaxId]);
 
   useEffect(() => {
-    const loadPricing = async () => {
-      console.log('[PurchasePage] Loading book pricing...');
+    const loadInitialData = async () => {
+      console.log('[PurchasePage] Loading initial data...');
       try {
-        const response = await getBooksPricing();
+        // Load book pricing
+        const pricingResponse = await getBooksPricing();
         const match =
-          response.books.find((book) => book.id === defaultBookId) ??
-          response.books[0] ??
+          pricingResponse.books.find((book) => book.id === defaultBookId) ??
+          pricingResponse.books[0] ??
           null;
         console.log('[PurchasePage] Book pricing loaded:', {
           bookId: match?.id,
@@ -515,19 +182,24 @@ function PurchasePage() {
           currency: match?.currency,
         });
         setSelectedBook(match);
+
+        // Load address metadata for default country
+        console.log('[PurchasePage] Loading address metadata for US...');
+        const metadataResponse = await getAddressMetadata('US');
+        setAddressMetadata(metadataResponse);
       } catch (error) {
         const parsedError = error as ApiError;
-        console.error('[PurchasePage] Failed to load pricing:', {
+        console.error('[PurchasePage] Failed to load initial data:', {
           message: parsedError.message,
           status: parsedError.status,
         });
-        setApiError(parsedError.message || 'Unable to load pricing.');
+        setApiError(parsedError.message || 'Unable to load checkout data.');
       } finally {
         setIsPricingLoading(false);
       }
     };
 
-    void loadPricing();
+    void loadInitialData();
   }, []);
 
   const quoteFingerprint = useMemo(
@@ -537,15 +209,17 @@ function PurchasePage() {
         quantity: form.quantity,
         email: form.email.trim().toLowerCase(),
         name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
-        phone: normalizedPhone,
+        phone: normalizedPhoneE164,
         line1: form.address1.trim(),
+        line2: form.address2.trim(),
+        recipientTaxId: normalizedRecipientTaxId,
         city: form.city.trim(),
         state: form.state.trim().toUpperCase(),
         postalCode: form.postalCode.trim(),
         country: form.country,
         shippingOption: form.shippingOption,
       }),
-    [form, normalizedPhone, selectedBook?.id],
+    [form, normalizedPhoneE164, normalizedRecipientTaxId, selectedBook?.id],
   );
 
   const displayCurrency = quote?.currency ?? selectedBook?.currency ?? 'USD';
@@ -570,6 +244,41 @@ function PurchasePage() {
   const summaryTotal = quote?.costs.total ?? summaryTotalInclTax;
   const summaryDiscount = saleActive ? Math.max(unitBasePrice - unitEffectivePrice, 0) * form.quantity : 0;
 
+  const handleCountryChange = useCallback(
+    async (newCountryCode: string) => {
+      console.log('[PurchasePage] Country changed to', newCountryCode);
+      setForm((prev) => ({
+        ...prev,
+        country: newCountryCode,
+        state: '',
+        recipientTaxId: '',
+        phone: formatPhoneForInput(prev.phone, newCountryCode),
+      }));
+      setNotice('');
+      
+      setIsMetadataLoading(true);
+      try {
+        const newMetadata = await getAddressMetadata(newCountryCode);
+        setAddressMetadata(newMetadata);
+        console.log('[PurchasePage] Address metadata loaded for', newCountryCode, {
+          requiresState: newMetadata.fields.requiresState,
+          stateLabel: newMetadata.fields.stateLabel,
+          subdivisions: newMetadata.subdivisions.length,
+        });
+      } catch (error) {
+        const parsedError = error as ApiError;
+        console.error('[PurchasePage] Failed to load metadata for country', {
+          country: newCountryCode,
+          message: parsedError.message,
+        });
+        setApiError(parsedError.message || `Unable to load metadata for ${newCountryCode}.`);
+      } finally {
+        setIsMetadataLoading(false);
+      }
+    },
+    [],
+  );
+
   const increaseQuantity = () => {
     updateField('quantity', clampQuantity(form.quantity + 1));
   };
@@ -590,7 +299,7 @@ function PurchasePage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const nextErrors: FieldErrors = {};
 
     if (!form.email.trim() || !emailPattern.test(form.email.trim())) {
@@ -617,6 +326,10 @@ function PurchasePage() {
       nextErrors.postalCode = 'Postal code is required.';
     }
 
+    if (requiresRecipientTaxId && !normalizedRecipientTaxId) {
+      nextErrors.recipientTaxId = `${addressMetadata?.fields.recipientTaxIdLabel ?? 'Recipient Tax ID'} is required for this destination.`;
+    }
+
     if (requiresStateCode && !form.state.trim()) {
       nextErrors.state = 'State/Province code is required for this destination.';
     }
@@ -637,8 +350,8 @@ function PurchasePage() {
 
     if (!form.phone.trim()) {
       nextErrors.phone = 'Phone is required.';
-    } else if (!phoneDashedPattern.test(normalizedPhone)) {
-      nextErrors.phone = 'Phone must use format XXX-XXX-XXXX.';
+    } else if (!normalizedPhoneE164) {
+      nextErrors.phone = `Enter a valid phone number for ${selectedCountryLabel}.`;
     }
 
     if (!Number.isFinite(form.quantity) || form.quantity < 1 || form.quantity > maxQuantity) {
@@ -658,7 +371,16 @@ function PurchasePage() {
     }
     
     return isValid;
-  };
+  }, [
+    addressMetadata?.fields.recipientTaxIdLabel,
+    form,
+    normalizedPhoneE164,
+    normalizedRecipientTaxId,
+    requiresRecipientTaxId,
+    requiresStateCode,
+    selectedCountryLabel,
+    selectedSubdivisionCatalog,
+  ]);
 
   const canRequestShippingOptions =
     Boolean(selectedBook?.id) &&
@@ -668,7 +390,17 @@ function PurchasePage() {
     Boolean(form.city.trim()) &&
     Boolean(form.postalCode.trim()) &&
     Boolean(form.country.trim()) &&
+    (!requiresRecipientTaxId || Boolean(normalizedRecipientTaxId)) &&
     (!requiresStateCode || Boolean(form.state.trim()));
+
+  const canAutoQuoteOnShippingSelection =
+    canRequestShippingOptions &&
+    Boolean(form.shippingOption) &&
+    Boolean(form.email.trim()) &&
+    emailPattern.test(form.email.trim()) &&
+    Boolean(form.firstName.trim()) &&
+    Boolean(form.lastName.trim()) &&
+    Boolean(normalizedPhoneE164);
 
   const requestShippingOptions = useCallback(async () => {
     if (!canRequestShippingOptions || !selectedBook) {
@@ -680,14 +412,17 @@ function PurchasePage() {
 
     try {
       const trimmedState = form.state.trim();
+      const trimmedAddress2 = form.address2.trim();
       const response = await getShippingOptions({
         bookId: selectedBook.id,
         address: {
           line1: form.address1.trim(),
+          ...(trimmedAddress2 ? { line2: trimmedAddress2 } : {}),
           city: form.city.trim(),
           postalCode: form.postalCode.trim(),
           country: form.country,
           ...(trimmedState ? { state: trimmedState.toUpperCase() } : {}),
+          ...(normalizedRecipientTaxId ? { recipientTaxId: normalizedRecipientTaxId } : {}),
         },
         quantity: form.quantity,
         currency: selectedBook.currency,
@@ -716,12 +451,14 @@ function PurchasePage() {
   }, [
     canRequestShippingOptions,
     form.address1,
+    form.address2,
     form.city,
     form.country,
     form.postalCode,
     form.quantity,
     form.shippingOption,
     form.state,
+    normalizedRecipientTaxId,
     selectedBook,
   ]);
 
@@ -747,7 +484,7 @@ function PurchasePage() {
     requestShippingOptions,
   ]);
 
-  const requestQuote = async () => {
+  const requestQuote = useCallback(async () => {
     if (!validateForm()) {
       return null;
     }
@@ -763,16 +500,19 @@ function PurchasePage() {
 
     try {
       const trimmedState = form.state.trim();
+      const trimmedAddress2 = form.address2.trim();
       const quoteResponse = await createQuote({
         bookId: selectedBook?.id ?? defaultBookId,
         address: {
           line1: form.address1.trim(),
+          ...(trimmedAddress2 ? { line2: trimmedAddress2 } : {}),
           city: form.city.trim(),
           postalCode: form.postalCode.trim(),
           country: form.country,
           ...(trimmedState ? { state: trimmedState.toUpperCase() } : {}),
+          ...(normalizedRecipientTaxId ? { recipientTaxId: normalizedRecipientTaxId } : {}),
         },
-        phone: normalizedPhone,
+        phone: normalizedPhoneE164,
         name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
         email: form.email.trim(),
         quantity: form.quantity,
@@ -800,7 +540,38 @@ function PurchasePage() {
     } finally {
       setIsQuoteLoading(false);
     }
-  };
+  }, [
+    displayCurrency,
+    form,
+    normalizedPhoneE164,
+    normalizedRecipientTaxId,
+    quoteFingerprint,
+    selectedBook?.id,
+    validateForm,
+  ]);
+
+  useEffect(() => {
+    if (previousShippingOptionRef.current === form.shippingOption) {
+      return;
+    }
+
+    previousShippingOptionRef.current = form.shippingOption;
+    setQuote(null);
+    setLastQuotedFingerprint(null);
+    setNotice('');
+
+    if (!form.shippingOption || !canAutoQuoteOnShippingSelection) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void requestQuote();
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [canAutoQuoteOnShippingSelection, form.shippingOption, requestQuote]);
 
   const handleCheckoutSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -836,6 +607,8 @@ function PurchasePage() {
         quoteId: activeQuote.quoteId,
         orderId: checkout.orderId,
         paypalOrderId: checkout.paypalOrderId,
+        phoneE164: normalizedPhoneE164,
+        contactEmail: form.email.trim(),
       });
       window.location.assign(checkout.approveUrl);
     } catch (error) {
@@ -1067,14 +840,14 @@ function PurchasePage() {
 
                 <label className="md:col-span-2 flex flex-col gap-2" htmlFor="address1">
                   <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {selectedCountry.addressLabel}
+                    Address
                   </span>
                   <input
                     id="address1"
                     name="address1"
                     type="text"
                     className={shippingInputClasses}
-                    placeholder={selectedCountry.addressPlaceholder}
+                    placeholder="Street and number"
                     value={form.address1}
                     onChange={(event) => updateField('address1', event.target.value)}
                   />
@@ -1084,6 +857,54 @@ function PurchasePage() {
                     </span>
                   )}
                 </label>
+
+                <label className="md:col-span-2 flex flex-col gap-2" htmlFor="address2">
+                  <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    Address (continued) - Optional
+                  </span>
+                  <input
+                    id="address2"
+                    name="address2"
+                    type="text"
+                    className={shippingInputClasses}
+                    placeholder="Apt., Suite, Building, etc."
+                    value={form.address2}
+                    onChange={(event) => updateField('address2', event.target.value)}
+                  />
+                  <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    For additional address details such as apartment or office number.
+                  </span>
+                </label>
+
+                {requiresRecipientTaxId && (
+                  <label className="md:col-span-2 flex flex-col gap-2" htmlFor="recipientTaxId">
+                    <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
+                      {addressMetadata?.fields.recipientTaxIdLabel ?? 'Recipient Tax ID'}
+                    </span>
+                    <input
+                      id="recipientTaxId"
+                      name="recipientTaxId"
+                      type="text"
+                      className={shippingInputClasses}
+                      placeholder={addressMetadata?.fields.recipientTaxIdLabel ?? 'Recipient Tax ID'}
+                      value={form.recipientTaxId}
+                      onChange={(event) =>
+                        updateField('recipientTaxId', formatRecipientTaxIdForInput(form.country, event.target.value))
+                      }
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                    <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+                      Required for {selectedCountryLabel}. {getRecipientTaxIdUxHint(form.country)}
+                    </span>
+                    {errors.recipientTaxId && (
+                      <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                        {errors.recipientTaxId}
+                      </span>
+                    )}
+                  </label>
+                )}
 
                 <label className="flex flex-col gap-2" htmlFor="city">
                   <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -1107,9 +928,9 @@ function PurchasePage() {
 
                 <label className="flex flex-col gap-2" htmlFor="state">
                   <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {selectedCountry.stateLabel}
+                    {addressMetadata?.fields.stateLabel ?? 'State / Province'}
                   </span>
-                  {selectedSubdivisionCatalog ? (
+                  {selectedSubdivisionCatalog.length > 0 ? (
                     <select
                       id="state"
                       name="state"
@@ -1130,7 +951,7 @@ function PurchasePage() {
                       name="state"
                       type="text"
                       className={shippingInputClasses}
-                      placeholder={selectedCountry.statePlaceholder}
+                      placeholder="State/Province code"
                       value={form.state}
                       onChange={(event) => updateField('state', event.target.value.toUpperCase())}
                     />
@@ -1149,14 +970,14 @@ function PurchasePage() {
 
                 <label className="flex flex-col gap-2" htmlFor="postalCode">
                   <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {selectedCountry.postalLabel}
+                    {addressMetadata?.fields.postalCodeLabel ?? 'Postal code'}
                   </span>
                   <input
                     id="postalCode"
                     name="postalCode"
                     type="text"
                     className={shippingInputClasses}
-                    placeholder={selectedCountry.postalPlaceholder}
+                    placeholder={addressMetadata?.fields.postalCodeLabel ?? 'Postal code'}
                     value={form.postalCode}
                     onChange={(event) => updateField('postalCode', event.target.value)}
                   />
@@ -1176,17 +997,14 @@ function PurchasePage() {
                     name="country"
                     className={shippingInputClasses}
                     value={form.country}
-                    onChange={(event) => {
-                      updateField('country', event.target.value);
-                      updateField('state', '');
-                      setNotice('');
-                    }}
+                    onChange={(event) => void handleCountryChange(event.target.value)}
+                    disabled={isMetadataLoading || !addressMetadata}
                   >
-                    {luluCountries.map((country) => (
+                    {addressMetadata?.countries.map((country) => (
                       <option key={country.code} value={country.code}>
-                        {country.label} ({country.code})
+                        {country.name} ({country.code})
                       </option>
-                    ))}
+                    )) ?? []}
                   </select>
                   {errors.country && (
                     <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -1204,12 +1022,12 @@ function PurchasePage() {
                     name="phone"
                     type="tel"
                     className={shippingInputClasses}
-                    placeholder="555-123-4567"
+                    placeholder={phonePlaceholder}
                     value={form.phone}
-                    onChange={(event) => updateField('phone', event.target.value)}
+                    onChange={(event) => updateField('phone', formatPhoneForInput(event.target.value, form.country))}
                   />
                   <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    XXX-XXX-XXXX
+                    {normalizedPhoneE164 ? `Will be sent as ${normalizedPhoneE164}` : 'International validation by country (E.164 on submit).'}
                   </span>
                   {errors.phone && (
                     <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>

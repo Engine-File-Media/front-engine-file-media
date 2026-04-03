@@ -1,5 +1,6 @@
 import { client, toApiError } from './client';
 import type {
+  AddressMetadataResponse,
   BooksPricingResponse,
   CaptureRequest,
   CaptureResponse,
@@ -18,6 +19,23 @@ export const getBooksPricing = async () => {
     return data;
   } catch (error) {
     console.error('❌ [getBooksPricing] Failed', error);
+    throw toApiError(error);
+  }
+};
+
+export const getAddressMetadata = async (countryCode?: string) => {
+  const query = countryCode ? `?country=${countryCode}` : '';
+  console.log('🌍 [getAddressMetadata] Fetching address metadata', { countryCode });
+  try {
+    const { data } = await client.get<AddressMetadataResponse>(`/address/metadata${query}`);
+    console.log('✅ [getAddressMetadata] Success', {
+      countryCode: data.fields.countryCode,
+      countriesCount: data.countries.length,
+      subdivisionsCount: data.subdivisions.length,
+    });
+    return data;
+  } catch (error) {
+    console.error('❌ [getAddressMetadata] Failed', error);
     throw toApiError(error);
   }
 };

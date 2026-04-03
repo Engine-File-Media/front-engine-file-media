@@ -22,17 +22,45 @@ export type BooksPricingResponse = {
   books: BookPricing[];
 };
 
+export type Country = {
+  code: string;
+  name: string;
+};
+
+export type Subdivision = {
+  code: string;
+  name: string;
+};
+
+export type CountryMetadata = {
+  requiresState: boolean;
+  stateLabel: string;
+  postalCodeLabel: string;
+  supportsPostalCode: boolean;
+  requiresRecipientTaxId: boolean;
+  recipientTaxIdLabel: string;
+};
+
+export type AddressMetadataResponse = {
+  countries: Country[];
+  fields: CountryMetadata & { countryCode: string };
+  subdivisions: Subdivision[];
+};
+
 export type QuoteAddressInput = {
   line1: string;
+  line2?: string;
   city: string;
   postalCode: string;
   country: string;
   state?: string;
+  recipientTaxId?: string;
 };
 
 export type CreateQuoteRequest = {
   bookId: string;
   address: QuoteAddressInput;
+  // Valid phone for shipping country. Prefer E.164 (e.g. +569750804180).
   phone: string;
   name: string;
   email: string;
@@ -78,10 +106,12 @@ export type QuoteResponse = {
   shippingMethod: string;
   address: {
     line1: string;
+    line2?: string;
     city: string;
     state?: string;
     postalCode: string;
     country: string;
+    recipientTaxId?: string;
     phone: string;
   };
   customer: {
@@ -133,18 +163,9 @@ export type CaptureRequest = {
   orderId?: string;
   lulu?: {
     contactEmail?: string;
+    // Canonical phone value sent to Lulu. Prefer E.164.
     phoneNumber?: string;
-    phone?: string;
-    phone_number?: string;
     shippingLevel?: string;
-    lineItems?: Array<{
-      external_id: string;
-      title: string;
-      cover?: string;
-      interior?: string;
-      quantity: number;
-      pod_package_id?: string;
-    }>;
   };
 };
 

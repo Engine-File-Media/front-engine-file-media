@@ -28,8 +28,14 @@ function PurchaseReturnPage() {
       }
 
       try {
+        const luluPayload = {
+          ...(stored?.contactEmail ? { contactEmail: stored.contactEmail } : {}),
+          ...(stored?.phoneE164 ? { phoneNumber: stored.phoneE164 } : {}),
+        };
+
         const response = await capturePaypalOrder(paypalOrderId, {
           orderId: stored?.orderId,
+          ...(Object.keys(luluPayload).length > 0 ? { lulu: luluPayload } : {}),
         });
         clearPurchaseState();
         setStatus('success');
