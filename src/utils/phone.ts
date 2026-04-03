@@ -47,3 +47,21 @@ export const getPhonePlaceholderByCountry = (country: string) => {
   if (countryCode === 'US' || countryCode === 'CA') return '(844) 212-0689';
   return '555 123 4567';
 };
+
+export const getPhoneInputMaxLengthByCountry = (country: string) => {
+  const countryCode = toCountryCode(country);
+  if (!countryCode) {
+    return getPhonePlaceholderByCountry(country).length;
+  }
+
+  // Feed enough digits so AsYouType reaches the country's formatting template.
+  const formatter = new AsYouType(countryCode);
+  formatter.input('999999999999999');
+  const template = formatter.getTemplate();
+
+  if (!template) {
+    return getPhonePlaceholderByCountry(country).length;
+  }
+
+  return template.length;
+};

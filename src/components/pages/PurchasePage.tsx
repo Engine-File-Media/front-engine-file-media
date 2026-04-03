@@ -7,7 +7,7 @@ import introduccionImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/intr
 import toyotaCelicaImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/TOYOTA-CELICA-ST205.webp';
 import { createCheckout, createQuote, getAddressMetadata, getBooksPricing, getShippingOptions } from '../../api/payments';
 import type { AddressMetadataResponse, ApiError, BookPricing, QuoteResponse, ShippingOption } from '../../api/types';
-import { formatPhoneForInput, getPhonePlaceholderByCountry, normalizePhoneToE164 } from '../../utils/phone';
+import { formatPhoneForInput, getPhoneInputMaxLengthByCountry, getPhonePlaceholderByCountry, normalizePhoneToE164 } from '../../utils/phone';
 import { savePurchaseState } from '../../utils/storage';
 
 const shippingInputClasses =
@@ -148,23 +148,53 @@ function PurchasePage() {
   const [notice, setNotice] = useState('');
   const [apiError, setApiError] = useState('');
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [countryQuery, setCountryQuery] = useState('');
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const previousShippingOptionRef = useRef(form.shippingOption);
-  const selectedCountryLabel =
-    addressMetadata?.countries.find((country) => country.code === form.country)?.name ?? 'Selected country';
+  const selectedCountry = useMemo(() => {
+    return addressMetadata?.countries.find((country) => country.code === form.country) ?? null;
+  }, [addressMetadata?.countries, form.country]);
+  const selectedCountryLabel = selectedCountry?.name ?? 'Selected country';
   const requiresStateCode = addressMetadata?.fields.requiresState ?? false;
   const requiresRecipientTaxId = addressMetadata?.fields.requiresRecipientTaxId ?? false;
   const selectedSubdivisionCatalog = useMemo(() => {
     return addressMetadata?.subdivisions ?? [];
   }, [addressMetadata?.subdivisions]);
+  const filteredCountries = useMemo(() => {
+    const countries = addressMetadata?.countries ?? [];
+    const query = countryQuery.trim().toLowerCase();
+
+    if (!query) {
+      return countries;
+    }
+
+    return countries.filter((country) => {
+      const nameMatch = country.name.toLowerCase().includes(query);
+      const codeMatch = country.code.toLowerCase().includes(query);
+      return nameMatch || codeMatch;
+    });
+  }, [addressMetadata?.countries, countryQuery]);
   const normalizedPhoneE164 = useMemo(() => {
     return normalizePhoneToE164(form.phone, form.country);
   }, [form.country, form.phone]);
   const phonePlaceholder = useMemo(() => {
     return getPhonePlaceholderByCountry(form.country);
   }, [form.country]);
+  const phoneMaxLength = useMemo(() => {
+    return getPhoneInputMaxLengthByCountry(form.country);
+  }, [form.country]);
   const normalizedRecipientTaxId = useMemo(() => {
     return normalizeRecipientTaxIdForPayload(form.country, form.recipientTaxId);
   }, [form.country, form.recipientTaxId]);
+
+  useEffect(() => {
+    if (selectedCountry) {
+      setCountryQuery(`${selectedCountry.name} (${selectedCountry.code})`);
+      return;
+    }
+
+    setCountryQuery(form.country);
+  }, [form.country, selectedCountry]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -992,20 +1022,63 @@ function PurchasePage() {
                   <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
                     Country
                   </span>
-                  <select
-                    id="country"
-                    name="country"
-                    className={shippingInputClasses}
-                    value={form.country}
-                    onChange={(event) => void handleCountryChange(event.target.value)}
-                    disabled={isMetadataLoading || !addressMetadata}
-                  >
-                    {addressMetadata?.countries.map((country) => (
-                      <option key={country.code} value={country.code}>
-                        {country.name} ({country.code})
-                      </option>
-                    )) ?? []}
-                  </select>
+                  <div className="relative">
+                    <input
+                      id="country"
+                      name="country"
+                      type="text"
+                      autoComplete="off"
+                      className={shippingInputClasses}
+                      placeholder="Type to search country"
+                      value={countryQuery}
+                      onFocus={() => {
+                        setIsCountryDropdownOpen(true);
+                        setCountryQuery('');
+                      }}
+                      onChange={(event) => {
+                        setCountryQuery(event.target.value);
+                        setIsCountryDropdownOpen(true);
+                      }}
+                      onBlur={() => {
+                        window.setTimeout(() => {
+                          setIsCountryDropdownOpen(false);
+                          if (selectedCountry) {
+                            setCountryQuery(`${selectedCountry.name} (${selectedCountry.code})`);
+                          }
+                        }, 120);
+                      }}
+                      disabled={isMetadataLoading || !addressMetadata}
+                    />
+                    {isCountryDropdownOpen && !isMetadataLoading && addressMetadata && (
+                      <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto border border-black/20 bg-white shadow-sm">
+                        {filteredCountries.length === 0 ? (
+                          <div className="px-3 py-2 text-[13px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            No countries found.
+                          </div>
+                        ) : (
+                          filteredCountries.map((country) => (
+                            <button
+                              key={country.code}
+                              type="button"
+                              className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] text-[#0A0A0A] transition-colors hover:bg-black/5"
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                setCountryQuery(`${country.name} (${country.code})`);
+                                setIsCountryDropdownOpen(false);
+                                void handleCountryChange(country.code);
+                              }}
+                            >
+                              <span>{country.name}</span>
+                              <span className="text-[#0A0A0A]/55">{country.code}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    {filteredCountries.length} countries match your search.
+                  </span>
                   {errors.country && (
                     <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
                       {errors.country}
@@ -1023,8 +1096,14 @@ function PurchasePage() {
                     type="tel"
                     className={shippingInputClasses}
                     placeholder={phonePlaceholder}
+                    maxLength={phoneMaxLength}
                     value={form.phone}
-                    onChange={(event) => updateField('phone', formatPhoneForInput(event.target.value, form.country))}
+                    onChange={(event) =>
+                      updateField(
+                        'phone',
+                        formatPhoneForInput(event.target.value, form.country).slice(0, phoneMaxLength),
+                      )
+                    }
                   />
                   <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
                     {normalizedPhoneE164 ? `Will be sent as ${normalizedPhoneE164}` : 'International validation by country (E.164 on submit).'}
