@@ -7,7 +7,15 @@ import introduccionImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/intr
 import toyotaCelicaImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/TOYOTA-CELICA-ST205.webp';
 import { createCheckout, createQuote, getAddressMetadata, getBooksPricing, getShippingOptions } from '../../api/payments';
 import type { AddressMetadataResponse, ApiError, BookPricing, QuoteResponse, ShippingOption } from '../../api/types';
-import { formatPhoneForInput, getPhoneInputMaxLengthByCountry, getPhonePlaceholderByCountry, normalizePhoneToE164 } from '../../utils/phone';
+import {
+  composePhoneWithDialCode,
+  formatPhoneForInput,
+  getPhoneDialCodeByCountry,
+  getPhoneInputMaxLengthByCountry,
+  getPhonePlaceholderByCountry,
+  isLuluPhonePatternValid,
+  normalizePhoneToE164,
+} from '../../utils/phone';
 import { savePurchaseState } from '../../utils/storage';
 
 const shippingInputClasses =
@@ -30,6 +38,8 @@ type FormState = {
   state: string;
   postalCode: string;
   country: string;
+  isBusiness: boolean;
+  isPostbox: boolean;
   phone: string;
   shippingOption: string;
 };
@@ -134,6 +144,8 @@ function PurchasePage() {
     state: '',
     postalCode: '',
     country: 'US',
+    isBusiness: false,
+    isPostbox: false,
     phone: '',
     shippingOption: '',
   });
@@ -183,6 +195,12 @@ function PurchasePage() {
   const phoneMaxLength = useMemo(() => {
     return getPhoneInputMaxLengthByCountry(form.country);
   }, [form.country]);
+  const phoneDialCode = useMemo(() => {
+    return getPhoneDialCodeByCountry(form.country);
+  }, [form.country]);
+  const luluPhoneCandidate = useMemo(() => {
+    return composePhoneWithDialCode(form.phone, form.country);
+  }, [form.country, form.phone]);
   const normalizedRecipientTaxId = useMemo(() => {
     return normalizeRecipientTaxIdForPayload(form.country, form.recipientTaxId);
   }, [form.country, form.recipientTaxId]);
@@ -247,6 +265,8 @@ function PurchasePage() {
         state: form.state.trim().toUpperCase(),
         postalCode: form.postalCode.trim(),
         country: form.country,
+        isBusiness: form.isBusiness,
+        isPostbox: form.isPostbox,
         shippingOption: form.shippingOption,
       }),
     [form, normalizedPhoneE164, normalizedRecipientTaxId, selectedBook?.id],
@@ -380,6 +400,8 @@ function PurchasePage() {
 
     if (!form.phone.trim()) {
       nextErrors.phone = 'Phone is required.';
+    } else if (!isLuluPhonePatternValid(form.phone, form.country)) {
+      nextErrors.phone = 'Phone must use 8-20 valid characters (digits, spaces, +, -, /, parentheses).';
     } else if (!normalizedPhoneE164) {
       nextErrors.phone = `Enter a valid phone number for ${selectedCountryLabel}.`;
     }
@@ -451,6 +473,8 @@ function PurchasePage() {
           city: form.city.trim(),
           postalCode: form.postalCode.trim(),
           country: form.country,
+          isBusiness: form.isBusiness,
+          isPostbox: form.isPostbox,
           ...(trimmedState ? { state: trimmedState.toUpperCase() } : {}),
           ...(normalizedRecipientTaxId ? { recipientTaxId: normalizedRecipientTaxId } : {}),
         },
@@ -484,6 +508,8 @@ function PurchasePage() {
     form.address2,
     form.city,
     form.country,
+    form.isBusiness,
+    form.isPostbox,
     form.postalCode,
     form.quantity,
     form.shippingOption,
@@ -539,6 +565,8 @@ function PurchasePage() {
           city: form.city.trim(),
           postalCode: form.postalCode.trim(),
           country: form.country,
+          isBusiness: form.isBusiness,
+          isPostbox: form.isPostbox,
           ...(trimmedState ? { state: trimmedState.toUpperCase() } : {}),
           ...(normalizedRecipientTaxId ? { recipientTaxId: normalizedRecipientTaxId } : {}),
         },
@@ -906,6 +934,34 @@ function PurchasePage() {
                   </span>
                 </label>
 
+                <label className="flex items-center gap-3 border border-black/20 bg-[#FAFAFA] px-3 py-2" htmlFor="isBusiness">
+                  <input
+                    id="isBusiness"
+                    name="isBusiness"
+                    type="checkbox"
+                    checked={form.isBusiness}
+                    onChange={(event) => updateField('isBusiness', event.target.checked)}
+                    className="h-4 w-4 accent-black"
+                  />
+                  <span className="text-[12px] font-semibold tracking-[1.1px] text-[#0A0A0A]/80 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    Business address
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-3 border border-black/20 bg-[#FAFAFA] px-3 py-2" htmlFor="isPostbox">
+                  <input
+                    id="isPostbox"
+                    name="isPostbox"
+                    type="checkbox"
+                    checked={form.isPostbox}
+                    onChange={(event) => updateField('isPostbox', event.target.checked)}
+                    className="h-4 w-4 accent-black"
+                  />
+                  <span className="text-[12px] font-semibold tracking-[1.1px] text-[#0A0A0A]/80 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    PO Box address
+                  </span>
+                </label>
+
                 {requiresRecipientTaxId && (
                   <label className="md:col-span-2 flex flex-col gap-2" htmlFor="recipientTaxId">
                     <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -1090,23 +1146,33 @@ function PurchasePage() {
                   <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
                     Phone
                   </span>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    className={shippingInputClasses}
-                    placeholder={phonePlaceholder}
-                    maxLength={phoneMaxLength}
-                    value={form.phone}
-                    onChange={(event) =>
-                      updateField(
-                        'phone',
-                        formatPhoneForInput(event.target.value, form.country).slice(0, phoneMaxLength),
-                      )
-                    }
-                  />
+                  <div className="flex h-11 overflow-hidden border border-black/20 bg-white">
+                    <div
+                      className="inline-flex min-w-16 items-center justify-center border-r border-black/20 px-3 text-[13px] font-semibold text-[#0A0A0A]/75"
+                      style={{ fontFamily: 'Inter, sans-serif' }}
+                    >
+                      {phoneDialCode || '+'}
+                    </div>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      className="h-full w-full bg-white px-3 text-[14px] text-[#0A0A0A] outline-none"
+                      placeholder={phonePlaceholder}
+                      maxLength={phoneMaxLength}
+                      value={form.phone}
+                      onChange={(event) =>
+                        updateField(
+                          'phone',
+                          formatPhoneForInput(event.target.value.replace(/^\+/, ''), form.country).slice(0, phoneMaxLength),
+                        )
+                      }
+                    />
+                  </div>
                   <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {normalizedPhoneE164 ? `Will be sent as ${normalizedPhoneE164}` : 'International validation by country (E.164 on submit).'}
+                    {normalizedPhoneE164
+                      ? `Will be sent as ${normalizedPhoneE164} (Lulu input: ${luluPhoneCandidate || `${phoneDialCode} ...`}).`
+                      : `Use 8-20 chars for Lulu format. Example: ${phoneDialCode || '+'} 111 111 111`}
                   </span>
                   {errors.phone && (
                     <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>

@@ -48,6 +48,12 @@ export type AddressMetadataResponse = {
 };
 
 export type QuoteAddressInput = {
+  name?: string;
+  organization?: string;
+  title?: 'MR' | 'MISS' | 'MRS' | 'MS' | 'DR';
+  email?: string;
+  isBusiness?: boolean;
+  isPostbox?: boolean;
   line1: string;
   line2?: string;
   city: string;
@@ -105,6 +111,12 @@ export type QuoteResponse = {
   };
   shippingMethod: string;
   address: {
+    name?: string;
+    organization?: string;
+    title?: 'MR' | 'MISS' | 'MRS' | 'MS' | 'DR';
+    email?: string;
+    isBusiness?: boolean;
+    isPostbox?: boolean;
     line1: string;
     line2?: string;
     city: string;
@@ -166,6 +178,21 @@ export type CaptureRequest = {
     // Canonical phone value sent to Lulu. Prefer E.164.
     phoneNumber?: string;
     shippingLevel?: string;
+    shippingAddress?: {
+      name?: string;
+      organization?: string;
+      title?: 'MR' | 'MISS' | 'MRS' | 'MS' | 'DR';
+      email?: string;
+      isBusiness?: boolean;
+      isPostbox?: boolean;
+      line1?: string;
+      line2?: string;
+      city?: string;
+      stateCode?: string;
+      postcode?: string;
+      countryCode?: string;
+      recipientTaxId?: string;
+    };
   };
 };
 

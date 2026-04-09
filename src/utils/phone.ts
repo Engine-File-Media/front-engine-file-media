@@ -1,6 +1,7 @@
-import { AsYouType, type CountryCode, parsePhoneNumberFromString } from 'libphonenumber-js';
+import { AsYouType, getCountryCallingCode, type CountryCode, parsePhoneNumberFromString } from 'libphonenumber-js';
 
 const isoCountryCodePattern = /^[A-Z]{2}$/;
+const luluPhonePattern = /^\+?[\d\s\-./()]{8,20}$/;
 
 const toCountryCode = (value: string): CountryCode | undefined => {
   const candidate = value.trim().toUpperCase();
@@ -46,6 +47,46 @@ export const getPhonePlaceholderByCountry = (country: string) => {
   if (countryCode === 'MX') return '55 1234 5678';
   if (countryCode === 'US' || countryCode === 'CA') return '(844) 212-0689';
   return '555 123 4567';
+};
+
+export const getPhoneDialCodeByCountry = (country: string) => {
+  const countryCode = toCountryCode(country);
+  if (!countryCode) {
+    return '';
+  }
+
+  try {
+    return `+${getCountryCallingCode(countryCode)}`;
+  } catch {
+    return '';
+  }
+};
+
+export const composePhoneWithDialCode = (value: string, country: string) => {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return '';
+  }
+
+  if (trimmedValue.startsWith('+')) {
+    return trimmedValue;
+  }
+
+  const dialCode = getPhoneDialCodeByCountry(country);
+  if (!dialCode) {
+    return trimmedValue;
+  }
+
+  return `${dialCode} ${trimmedValue}`;
+};
+
+export const isLuluPhonePatternValid = (value: string, country: string) => {
+  const withDialCode = composePhoneWithDialCode(value, country);
+  if (!withDialCode) {
+    return false;
+  }
+
+  return luluPhonePattern.test(withDialCode);
 };
 
 export const getPhoneInputMaxLengthByCountry = (country: string) => {
