@@ -8,6 +8,8 @@ import PurchaseContactForm from '../purchase/PurchaseContactForm';
 import PurchasePaymentAction from '../purchase/PurchasePaymentAction';
 import PurchaseShippingForm from '../purchase/PurchaseShippingForm';
 import PurchaseShippingQuoteSection from '../purchase/PurchaseShippingQuoteSection';
+import PurchaseStepSummaryCard from '../purchase/PurchaseStepSummaryCard';
+import PurchaseStepTimeline from '../purchase/PurchaseStepTimeline';
 import PurchaseSummary from '../purchase/PurchaseSummary';
 import type { FieldErrors, FormState } from '../purchase/purchaseTypes';
 import { resolveVolumeConfig } from '../../data/volumes';
@@ -28,6 +30,45 @@ const shippingInputClasses =
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxQuantity = 50;
 const stateCodePattern = /^[A-Z0-9-]{1,10}$/;
+type StepKey = 'order' | 'address' | 'contact' | 'shipping' | 'checkout';
+
+const purchaseSteps: Array<{ key: StepKey; label: string }> = [
+  { key: 'order', label: 'Order' },
+  { key: 'address', label: 'Address' },
+  { key: 'contact', label: 'Contact' },
+  { key: 'shipping', label: 'Shipping Method' },
+  { key: 'checkout', label: 'Checkout' },
+];
+
+const addressDependentFields: Array<keyof FormState> = [
+  'address1',
+  'address2',
+  'recipientTaxId',
+  'city',
+  'state',
+  'postalCode',
+  'country',
+  'isBusiness',
+  'isPostbox',
+];
+
+const contactDependentFields: Array<keyof FormState> = ['email', 'firstName', 'lastName', 'phone'];
+
+const clearErrorFields = (
+  previousErrors: FieldErrors,
+  fieldsToClear: Array<keyof FieldErrors>,
+  nextErrors: FieldErrors,
+) => {
+  const clearedErrors = { ...previousErrors };
+  fieldsToClear.forEach((field) => {
+    delete clearedErrors[field];
+  });
+
+  return {
+    ...clearedErrors,
+    ...nextErrors,
+  };
+};
 
 const clampQuantity = (value: number) => Math.min(maxQuantity, Math.max(1, value));
 
@@ -132,7 +173,38 @@ function PurchasePage() {
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [countryQuery, setCountryQuery] = useState('');
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [completedUntilIndex, setCompletedUntilIndex] = useState(-1);
   const previousShippingOptionRef = useRef(form.shippingOption);
+  const currentStepKey = purchaseSteps[currentStepIndex]?.key ?? 'order';
+
+  const invalidateFromStep = useCallback((stepIndex: number) => {
+    setCompletedUntilIndex((prev) => Math.min(prev, stepIndex - 1));
+    setCurrentStepIndex((prev) => (prev > stepIndex ? stepIndex : prev));
+
+    if (stepIndex <= 3) {
+      setQuote(null);
+      setLastQuotedFingerprint(null);
+      setNotice('');
+    }
+  }, []);
+
+  const moveToNextStep = useCallback((stepIndex: number) => {
+    setCompletedUntilIndex((prev) => Math.max(prev, stepIndex));
+    setCurrentStepIndex(Math.min(stepIndex + 1, purchaseSteps.length - 1));
+  }, []);
+
+  const goToStep = useCallback(
+    (stepIndex: number) => {
+      if (stepIndex === currentStepIndex || stepIndex > completedUntilIndex) {
+        return;
+      }
+
+      invalidateFromStep(stepIndex);
+      setCurrentStepIndex(stepIndex);
+    },
+    [completedUntilIndex, currentStepIndex, invalidateFromStep],
+  );
   const selectedCountry = useMemo(() => {
     return addressMetadata?.countries.find((country) => country.code === form.country) ?? null;
   }, [addressMetadata?.countries, form.country]);
@@ -321,9 +393,40 @@ function PurchasePage() {
     setCurrentImageIndex((prev) => (prev - 1 + resolvedVolume.galleryImages.length) % resolvedVolume.galleryImages.length);
   };
 
-  const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const updateField = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
+    const isOrderField = key === 'quantity';
+    const isAddressField = addressDependentFields.includes(key);
+    const isContactField = contactDependentFields.includes(key);
+    const isShippingField = key === 'shippingOption';
+
+    if (isOrderField) {
+      invalidateFromStep(0);
+    } else if (isAddressField) {
+      invalidateFromStep(1);
+      setShippingOptions([]);
+    } else if (isContactField) {
+      invalidateFromStep(2);
+    } else if (isShippingField) {
+      invalidateFromStep(3);
+    }
+
+    setForm((prev) => {
+      const nextForm = { ...prev, [key]: value };
+      if ((isOrderField || isAddressField) && prev.shippingOption) {
+        nextForm.shippingOption = '';
+      }
+      return nextForm;
+    });
+
+    setErrors((prev) => {
+      const nextErrors = { ...prev };
+      delete nextErrors[key];
+      if (isOrderField || isAddressField) {
+        delete nextErrors.shippingOption;
+      }
+      return nextErrors;
+    });
+  }, [invalidateFromStep]);
 
   const validateForm = useCallback(() => {
     const nextErrors: FieldErrors = {};
@@ -410,6 +513,166 @@ function PurchasePage() {
     selectedSubdivisionCatalog,
   ]);
 
+  const validateOrderStep = useCallback(() => {
+    const nextErrors: FieldErrors = {};
+    if (!Number.isFinite(form.quantity) || form.quantity < 1 || form.quantity > maxQuantity) {
+      nextErrors.quantity = `Quantity must be between 1 and ${maxQuantity}.`;
+    }
+
+    setErrors((prev) => clearErrorFields(prev, ['quantity'], nextErrors));
+    return Object.keys(nextErrors).length === 0;
+  }, [form.quantity]);
+
+  const validateAddressStep = useCallback(() => {
+    const nextErrors: FieldErrors = {};
+
+    if (!form.address1.trim()) {
+      nextErrors.address1 = 'Address is required.';
+    }
+
+    if (!form.city.trim()) {
+      nextErrors.city = 'City is required.';
+    }
+
+    if (!form.postalCode.trim()) {
+      nextErrors.postalCode = 'Postal code is required.';
+    }
+
+    if (!form.country.trim()) {
+      nextErrors.country = 'Country is required.';
+    }
+
+    if (requiresRecipientTaxId && !normalizedRecipientTaxId) {
+      nextErrors.recipientTaxId = `${addressMetadata?.fields.recipientTaxIdLabel ?? 'Recipient Tax ID'} is required for this destination.`;
+    }
+
+    if (requiresStateCode && !form.state.trim()) {
+      nextErrors.state = 'State/Province code is required for this destination.';
+    }
+
+    const normalizedState = form.state.trim().toUpperCase();
+    if (normalizedState && selectedSubdivisionCatalog) {
+      const isKnownSubdivision = selectedSubdivisionCatalog.some((item) => item.code === normalizedState);
+      if (!isKnownSubdivision) {
+        nextErrors.state = `Use a valid ISO-3166-2 code for ${selectedCountryLabel}.`;
+      }
+    } else if (normalizedState && !stateCodePattern.test(normalizedState)) {
+      nextErrors.state = 'Use a valid state/province code (letters, numbers, hyphen).';
+    }
+
+    setErrors((prev) =>
+      clearErrorFields(prev, ['address1', 'recipientTaxId', 'city', 'state', 'postalCode', 'country'], nextErrors),
+    );
+
+    return Object.keys(nextErrors).length === 0;
+  }, [
+    addressMetadata?.fields.recipientTaxIdLabel,
+    form.address1,
+    form.city,
+    form.country,
+    form.postalCode,
+    form.state,
+    normalizedRecipientTaxId,
+    requiresRecipientTaxId,
+    requiresStateCode,
+    selectedCountryLabel,
+    selectedSubdivisionCatalog,
+  ]);
+
+  const validateContactStep = useCallback(() => {
+    const nextErrors: FieldErrors = {};
+
+    if (!form.email.trim() || !emailPattern.test(form.email.trim())) {
+      nextErrors.email = 'Please enter a valid email address.';
+    }
+
+    if (!form.firstName.trim()) {
+      nextErrors.firstName = 'First name is required.';
+    }
+
+    if (!form.lastName.trim()) {
+      nextErrors.lastName = 'Last name is required.';
+    }
+
+    if (!form.phone.trim()) {
+      nextErrors.phone = 'Phone is required.';
+    } else if (!isLuluPhonePatternValid(form.phone, form.country)) {
+      nextErrors.phone = 'Phone must use 8-20 valid characters (digits, spaces, +, -, /, parentheses).';
+    } else if (!normalizedPhoneE164) {
+      nextErrors.phone = `Enter a valid phone number for ${selectedCountryLabel}.`;
+    }
+
+    setErrors((prev) => clearErrorFields(prev, ['email', 'firstName', 'lastName', 'phone'], nextErrors));
+
+    return Object.keys(nextErrors).length === 0;
+  }, [form.country, form.email, form.firstName, form.lastName, form.phone, normalizedPhoneE164, selectedCountryLabel]);
+
+  const validateShippingStep = useCallback(() => {
+    const nextErrors: FieldErrors = {};
+
+    if (!form.shippingOption) {
+      nextErrors.shippingOption = 'Select a shipping option.';
+    }
+
+    setErrors((prev) => clearErrorFields(prev, ['shippingOption'], nextErrors));
+    return Object.keys(nextErrors).length === 0;
+  }, [form.shippingOption]);
+
+  const handleEditStep = useCallback(
+    (stepIndex: number) => {
+      invalidateFromStep(stepIndex);
+      setCurrentStepIndex(stepIndex);
+    },
+    [invalidateFromStep],
+  );
+
+  const selectedShippingOptionLabel = useMemo(() => {
+    const selected = shippingOptions.find((option) => option.level === form.shippingOption);
+    if (!selected) {
+      return form.shippingOption || 'Not selected';
+    }
+    return `${selected.level} (${selected.currency} ${selected.costExclTax})`;
+  }, [form.shippingOption, shippingOptions]);
+
+  const orderSummaryLines = useMemo(
+    () => [`Quantity: ${form.quantity}`, `Estimated base total: ${displayCurrency} ${(unitBasePrice * form.quantity).toFixed(2)}`],
+    [displayCurrency, form.quantity, unitBasePrice],
+  );
+
+  const addressSummaryLines = useMemo(() => {
+    const lines = [
+      `Address: ${form.address1}${form.address2.trim() ? `, ${form.address2.trim()}` : ''}`,
+      `City / State: ${form.city}${form.state.trim() ? `, ${form.state.trim().toUpperCase()}` : ''}`,
+      `Postal code / Country: ${form.postalCode} / ${form.country}`,
+    ];
+
+    if (form.isBusiness) {
+      lines.push('Business address: Yes');
+    }
+    if (form.isPostbox) {
+      lines.push('PO Box address: Yes');
+    }
+    if (normalizedRecipientTaxId) {
+      lines.push(`Tax ID: ${normalizedRecipientTaxId}`);
+    }
+
+    return lines;
+  }, [form.address1, form.address2, form.city, form.country, form.isBusiness, form.isPostbox, form.postalCode, form.state, normalizedRecipientTaxId]);
+
+  const contactSummaryLines = useMemo(
+    () => [
+      `Name: ${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+      `Email: ${form.email.trim()}`,
+      `Phone: ${normalizedPhoneE164 || luluPhoneCandidate || form.phone.trim()}`,
+    ],
+    [form.email, form.firstName, form.lastName, form.phone, luluPhoneCandidate, normalizedPhoneE164],
+  );
+
+  const shippingSummaryLines = useMemo(
+    () => [`Method: ${selectedShippingOptionLabel}`, `Quote total: ${displayCurrency} ${summaryTotal.toFixed(2)}`],
+    [displayCurrency, selectedShippingOptionLabel, summaryTotal],
+  );
+
   const canRequestShippingOptions =
     Boolean(selectedBook?.id) &&
     Number.isFinite(form.quantity) &&
@@ -492,6 +755,7 @@ function PurchasePage() {
     form.state,
     normalizedRecipientTaxId,
     selectedBook,
+    updateField,
   ]);
 
   useEffect(() => {
@@ -514,6 +778,7 @@ function PurchasePage() {
     canRequestShippingOptions,
     form.shippingOption,
     requestShippingOptions,
+    updateField,
   ]);
 
   const requestQuote = useCallback(async () => {
@@ -585,6 +850,51 @@ function PurchasePage() {
     validateForm,
   ]);
 
+  const handleContinueCurrentStep = useCallback(async () => {
+    if (currentStepKey === 'order') {
+      if (!validateOrderStep()) {
+        return;
+      }
+      moveToNextStep(0);
+      return;
+    }
+
+    if (currentStepKey === 'address') {
+      if (!validateAddressStep()) {
+        return;
+      }
+      moveToNextStep(1);
+      return;
+    }
+
+    if (currentStepKey === 'contact') {
+      if (!validateContactStep()) {
+        return;
+      }
+      moveToNextStep(2);
+      return;
+    }
+
+    if (currentStepKey === 'shipping') {
+      if (!validateShippingStep()) {
+        return;
+      }
+      const nextQuote = await requestQuote();
+      if (!nextQuote) {
+        return;
+      }
+      moveToNextStep(3);
+    }
+  }, [
+    currentStepKey,
+    moveToNextStep,
+    requestQuote,
+    validateAddressStep,
+    validateContactStep,
+    validateOrderStep,
+    validateShippingStep,
+  ]);
+
   useEffect(() => {
     if (previousShippingOptionRef.current === form.shippingOption) {
       return;
@@ -611,6 +921,10 @@ function PurchasePage() {
   const handleCheckoutSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     console.log('[PurchasePage] Checkout submit initiated');
+
+    if (currentStepKey !== 'checkout') {
+      return;
+    }
 
     if (isCheckoutLoading) {
       return;
@@ -660,6 +974,21 @@ function PurchasePage() {
     }
   };
 
+  const canContinueCurrentStep =
+    (currentStepKey === 'order' && !isPricingLoading) ||
+    (currentStepKey === 'address' && !isMetadataLoading) ||
+    (currentStepKey === 'contact' && true) ||
+    (currentStepKey === 'shipping' && !isQuoteLoading && !isCheckoutLoading);
+
+  const continueButtonLabel =
+    currentStepKey === 'order'
+      ? 'Continue to Address'
+      : currentStepKey === 'address'
+        ? 'Continue to Contact'
+        : currentStepKey === 'contact'
+          ? 'Continue to Shipping Method'
+          : 'Continue to Checkout';
+
   return (
     <main className="w-full bg-white">
       <section className="border-b border-black/10 bg-[#F8F8F6]">
@@ -703,91 +1032,187 @@ function PurchasePage() {
               </section>
             )}
 
-            <PurchaseSummary
-              variant="order"
-              volumeTitle={resolvedVolume.title}
-              isPricingLoading={isPricingLoading}
-              displayCurrency={displayCurrency}
-              unitEffectivePrice={unitEffectivePrice}
-              unitBasePrice={unitBasePrice}
-              saleActive={saleActive}
-              discountPercent={discountPercent}
-              quantity={form.quantity}
-              quantityError={errors.quantity}
-              maxQuantity={maxQuantity}
-              summaryProduct={summaryProduct}
-              summaryShipping={summaryShipping}
-              summaryFulfillment={summaryFulfillment}
-              summaryHandling={summaryHandling}
-              summaryTax={summaryTax}
-              summaryDiscount={summaryDiscount}
-              summaryTotal={summaryTotal}
-              onDecreaseQuantity={decreaseQuantity}
-              onIncreaseQuantity={increaseQuantity}
-              onQuantityInput={(value) => {
-                const parsed = Number(value);
-                if (Number.isNaN(parsed)) {
-                  updateField('quantity', 1);
-                  return;
-                }
-                updateField('quantity', clampQuantity(parsed));
-              }}
+            <PurchaseStepTimeline
+              steps={purchaseSteps}
+              currentStepIndex={currentStepIndex}
+              completedUntilIndex={completedUntilIndex}
+              onSelectStep={goToStep}
             />
 
-            <PurchaseShippingForm
-              form={form}
-              errors={errors}
-              shippingInputClasses={shippingInputClasses}
-              addressMetadata={addressMetadata}
-              isMetadataLoading={isMetadataLoading}
-              selectedCountry={selectedCountry}
-              selectedCountryLabel={selectedCountryLabel}
-              requiresStateCode={requiresStateCode}
-              requiresRecipientTaxId={requiresRecipientTaxId}
-              selectedSubdivisionCatalog={selectedSubdivisionCatalog}
-              filteredCountries={filteredCountries}
-              countryQuery={countryQuery}
-              isCountryDropdownOpen={isCountryDropdownOpen}
-              setCountryQuery={setCountryQuery}
-              setIsCountryDropdownOpen={setIsCountryDropdownOpen}
-              onUpdateField={updateField}
-              onHandleCountryChange={handleCountryChange}
-              formatRecipientTaxIdForInput={formatRecipientTaxIdForInput}
-              getRecipientTaxIdUxHint={getRecipientTaxIdUxHint}
-            />
+            {completedUntilIndex >= 0 && currentStepIndex !== 0 && (
+              <PurchaseStepSummaryCard title="Order" lines={orderSummaryLines} onEdit={() => handleEditStep(0)} />
+            )}
+            {completedUntilIndex >= 1 && currentStepIndex !== 1 && (
+              <PurchaseStepSummaryCard title="Address" lines={addressSummaryLines} onEdit={() => handleEditStep(1)} />
+            )}
+            {completedUntilIndex >= 2 && currentStepIndex !== 2 && (
+              <PurchaseStepSummaryCard title="Contact" lines={contactSummaryLines} onEdit={() => handleEditStep(2)} />
+            )}
+            {completedUntilIndex >= 3 && currentStepIndex !== 3 && (
+              <PurchaseStepSummaryCard
+                title="Shipping Method"
+                lines={shippingSummaryLines}
+                onEdit={() => handleEditStep(3)}
+              />
+            )}
 
-            <PurchaseContactForm
-              form={form}
-              errors={errors}
-              shippingInputClasses={shippingInputClasses}
-              phoneDialCode={phoneDialCode}
-              phonePlaceholder={phonePlaceholder}
-              phoneMaxLength={phoneMaxLength}
-              normalizedPhoneE164={normalizedPhoneE164}
-              luluPhoneCandidate={luluPhoneCandidate}
-              onUpdateField={updateField}
-              formatPhoneForInput={formatPhoneForInput}
-            />
+            {currentStepKey === 'order' && (
+              <>
+                <PurchaseSummary
+                  variant="order"
+                  volumeTitle={resolvedVolume.title}
+                  isPricingLoading={isPricingLoading}
+                  displayCurrency={displayCurrency}
+                  unitEffectivePrice={unitEffectivePrice}
+                  unitBasePrice={unitBasePrice}
+                  saleActive={saleActive}
+                  discountPercent={discountPercent}
+                  quantity={form.quantity}
+                  quantityError={errors.quantity}
+                  maxQuantity={maxQuantity}
+                  summaryProduct={summaryProduct}
+                  summaryShipping={summaryShipping}
+                  summaryFulfillment={summaryFulfillment}
+                  summaryHandling={summaryHandling}
+                  summaryTax={summaryTax}
+                  summaryDiscount={summaryDiscount}
+                  summaryTotal={summaryTotal}
+                  onDecreaseQuantity={decreaseQuantity}
+                  onIncreaseQuantity={increaseQuantity}
+                  onQuantityInput={(value) => {
+                    const parsed = Number(value);
+                    if (Number.isNaN(parsed)) {
+                      updateField('quantity', 1);
+                      return;
+                    }
+                    updateField('quantity', clampQuantity(parsed));
+                  }}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleContinueCurrentStep();
+                    }}
+                    disabled={!canContinueCurrentStep}
+                    className="inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-6 py-3 text-[13px] font-semibold tracking-[1.6px] text-white uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ fontFamily: 'Inter, sans-serif' }}
+                  >
+                    {continueButtonLabel}
+                  </button>
+                </div>
+              </>
+            )}
 
-            <PurchaseShippingQuoteSection
-              form={form}
-              shippingOptions={shippingOptions}
-              isShippingOptionsLoading={isShippingOptionsLoading}
-              isPricingLoading={isPricingLoading}
-              isQuoteLoading={isQuoteLoading}
-              isCheckoutLoading={isCheckoutLoading}
-              shippingInputClasses={shippingInputClasses}
-              onUpdateField={updateField}
-              onRequestQuote={requestQuote}
-            />
-            <PurchasePaymentAction
-              quote={quote}
-              quoteFingerprint={quoteFingerprint}
-              lastQuotedFingerprint={lastQuotedFingerprint}
-              isPricingLoading={isPricingLoading}
-              isCheckoutLoading={isCheckoutLoading}
-              isQuoteLoading={isQuoteLoading}
-            />
+            {currentStepKey === 'address' && (
+              <>
+                <PurchaseShippingForm
+                  form={form}
+                  errors={errors}
+                  shippingInputClasses={shippingInputClasses}
+                  addressMetadata={addressMetadata}
+                  isMetadataLoading={isMetadataLoading}
+                  selectedCountry={selectedCountry}
+                  selectedCountryLabel={selectedCountryLabel}
+                  requiresStateCode={requiresStateCode}
+                  requiresRecipientTaxId={requiresRecipientTaxId}
+                  selectedSubdivisionCatalog={selectedSubdivisionCatalog}
+                  filteredCountries={filteredCountries}
+                  countryQuery={countryQuery}
+                  isCountryDropdownOpen={isCountryDropdownOpen}
+                  setCountryQuery={setCountryQuery}
+                  setIsCountryDropdownOpen={setIsCountryDropdownOpen}
+                  onUpdateField={updateField}
+                  onHandleCountryChange={handleCountryChange}
+                  formatRecipientTaxIdForInput={formatRecipientTaxIdForInput}
+                  getRecipientTaxIdUxHint={getRecipientTaxIdUxHint}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleContinueCurrentStep();
+                    }}
+                    disabled={!canContinueCurrentStep}
+                    className="inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-6 py-3 text-[13px] font-semibold tracking-[1.6px] text-white uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ fontFamily: 'Inter, sans-serif' }}
+                  >
+                    {continueButtonLabel}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {currentStepKey === 'contact' && (
+              <>
+                <PurchaseContactForm
+                  form={form}
+                  errors={errors}
+                  shippingInputClasses={shippingInputClasses}
+                  phoneDialCode={phoneDialCode}
+                  phonePlaceholder={phonePlaceholder}
+                  phoneMaxLength={phoneMaxLength}
+                  normalizedPhoneE164={normalizedPhoneE164}
+                  luluPhoneCandidate={luluPhoneCandidate}
+                  onUpdateField={updateField}
+                  formatPhoneForInput={formatPhoneForInput}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleContinueCurrentStep();
+                    }}
+                    disabled={!canContinueCurrentStep}
+                    className="inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-6 py-3 text-[13px] font-semibold tracking-[1.6px] text-white uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ fontFamily: 'Inter, sans-serif' }}
+                  >
+                    {continueButtonLabel}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {currentStepKey === 'shipping' && (
+              <>
+                <PurchaseShippingQuoteSection
+                  form={form}
+                  shippingOptions={shippingOptions}
+                  isShippingOptionsLoading={isShippingOptionsLoading}
+                  isPricingLoading={isPricingLoading}
+                  isQuoteLoading={isQuoteLoading}
+                  isCheckoutLoading={isCheckoutLoading}
+                  shippingInputClasses={shippingInputClasses}
+                  errors={errors}
+                  onUpdateField={updateField}
+                  onRequestQuote={requestQuote}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleContinueCurrentStep();
+                    }}
+                    disabled={!canContinueCurrentStep}
+                    className="inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-6 py-3 text-[13px] font-semibold tracking-[1.6px] text-white uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ fontFamily: 'Inter, sans-serif' }}
+                  >
+                    {isQuoteLoading ? 'Calculating...' : continueButtonLabel}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {currentStepKey === 'checkout' && (
+              <PurchasePaymentAction
+                quote={quote}
+                quoteFingerprint={quoteFingerprint}
+                lastQuotedFingerprint={lastQuotedFingerprint}
+                isPricingLoading={isPricingLoading}
+                isCheckoutLoading={isCheckoutLoading}
+                isQuoteLoading={isQuoteLoading}
+              />
+            )}
           </form>
 
           <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">

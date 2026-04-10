@@ -1,4 +1,5 @@
 import type { ShippingOption } from '../../api/types';
+import type { FieldErrors } from './purchaseTypes';
 import type { FormState } from './purchaseTypes';
 
 type PurchaseShippingQuoteSectionProps = {
@@ -9,6 +10,7 @@ type PurchaseShippingQuoteSectionProps = {
   isQuoteLoading: boolean;
   isCheckoutLoading: boolean;
   shippingInputClasses: string;
+  errors: FieldErrors;
   onUpdateField: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   onRequestQuote: () => Promise<unknown>;
 };
@@ -28,6 +30,7 @@ function PurchaseShippingQuoteSection({
   isQuoteLoading,
   isCheckoutLoading,
   shippingInputClasses,
+  errors,
   onUpdateField,
   onRequestQuote,
 }: PurchaseShippingQuoteSectionProps) {
@@ -74,6 +77,11 @@ function PurchaseShippingQuoteSection({
           {shippingOptions.length > 0 && (
             <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
               Includes estimated delivery and tracking availability per option.
+            </span>
+          )}
+          {errors.shippingOption && (
+            <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {errors.shippingOption}
             </span>
           )}
         </label>

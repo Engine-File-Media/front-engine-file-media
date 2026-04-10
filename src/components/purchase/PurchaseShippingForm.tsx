@@ -150,89 +150,7 @@ function PurchaseShippingForm({
             )}
           </label>
         )}
-
-        <label className="flex flex-col gap-2" htmlFor="city">
-          <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
-            City / Locality
-          </span>
-          <input
-            id="city"
-            name="city"
-            type="text"
-            className={shippingInputClasses}
-            placeholder="City"
-            value={form.city}
-            onChange={(event) => onUpdateField('city', event.target.value)}
-          />
-          {errors.city && (
-            <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
-              {errors.city}
-            </span>
-          )}
-        </label>
-
-        <label className="flex flex-col gap-2" htmlFor="state">
-          <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
-            {addressMetadata?.fields.stateLabel ?? 'State / Province'}
-          </span>
-          {selectedSubdivisionCatalog.length > 0 ? (
-            <select
-              id="state"
-              name="state"
-              className={shippingInputClasses}
-              value={form.state}
-              onChange={(event) => onUpdateField('state', event.target.value)}
-            >
-              <option value="">Select</option>
-              {selectedSubdivisionCatalog.map((subdivision) => (
-                <option key={subdivision.code} value={subdivision.code}>
-                  {subdivision.code} - {subdivision.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              id="state"
-              name="state"
-              type="text"
-              className={shippingInputClasses}
-              placeholder="State/Province code"
-              value={form.state}
-              onChange={(event) => onUpdateField('state', event.target.value.toUpperCase())}
-            />
-          )}
-          {requiresStateCode && (
-            <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
-              Required for {selectedCountryLabel}.
-            </span>
-          )}
-          {errors.state && (
-            <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
-              {errors.state}
-            </span>
-          )}
-        </label>
-
-        <label className="flex flex-col gap-2" htmlFor="postalCode">
-          <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
-            {addressMetadata?.fields.postalCodeLabel ?? 'Postal code'}
-          </span>
-          <input
-            id="postalCode"
-            name="postalCode"
-            type="text"
-            className={shippingInputClasses}
-            placeholder={addressMetadata?.fields.postalCodeLabel ?? 'Postal code'}
-            value={form.postalCode}
-            onChange={(event) => onUpdateField('postalCode', event.target.value)}
-          />
-          {errors.postalCode && (
-            <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
-              {errors.postalCode}
-            </span>
-          )}
-        </label>
-
+        
         <label className="flex flex-col gap-2" htmlFor="country">
           <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
             Country
@@ -299,7 +217,91 @@ function PurchaseShippingForm({
               {errors.country}
             </span>
           )}
+        </label>  
+        
+        <label className="flex flex-col gap-2" htmlFor="state">
+          <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
+            {addressMetadata?.fields.stateLabel ?? 'State / Province'}
+          </span>
+          {selectedSubdivisionCatalog.length > 0 ? (
+            <select
+              id="state"
+              name="state"
+              className={shippingInputClasses}
+              value={form.state}
+              onChange={(event) => onUpdateField('state', event.target.value)}
+            >
+              <option value="">Select</option>
+              {selectedSubdivisionCatalog.map((subdivision) => (
+                <option key={subdivision.code} value={subdivision.code}>
+                  {subdivision.code} - {subdivision.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              id="state"
+              name="state"
+              type="text"
+              className={shippingInputClasses}
+              placeholder="State/Province code"
+              value={form.state}
+              onChange={(event) => onUpdateField('state', event.target.value.toUpperCase())}
+            />
+          )}
+          {requiresStateCode && (
+            <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Required for {selectedCountryLabel}.
+            </span>
+          )}
+          {errors.state && (
+            <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {errors.state}
+            </span>
+          )}
         </label>
+        
+        <label className="flex flex-col gap-2" htmlFor="city">
+          <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
+            City / Locality
+          </span>
+          <input
+            id="city"
+            name="city"
+            type="text"
+            className={shippingInputClasses}
+            placeholder="City"
+            value={form.city}
+            onChange={(event) => onUpdateField('city', event.target.value)}
+          />
+          {errors.city && (
+            <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {errors.city}
+            </span>
+          )}
+        </label>
+
+        <label className="flex flex-col gap-2" htmlFor="postalCode">
+          <span className="text-[12px] font-semibold tracking-[1.2px] text-[#0A0A0A]/70 uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
+            {addressMetadata?.fields.postalCodeLabel ?? 'Postal code'}
+          </span>
+          <input
+            id="postalCode"
+            name="postalCode"
+            type="text"
+            className={shippingInputClasses}
+            placeholder={addressMetadata?.fields.postalCodeLabel ?? 'Postal code'}
+            value={form.postalCode}
+            onChange={(event) => onUpdateField('postalCode', event.target.value)}
+          />
+          {errors.postalCode && (
+            <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {errors.postalCode}
+            </span>
+          )}
+        </label>
+
+        
       </div>
     </section>
   );
