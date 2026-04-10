@@ -1,7 +1,20 @@
-import bookMockupCovers from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.webp';
-import indiceImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.webp';
-import capituloAudiImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
-import introduccionImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
+import { useEffect, useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import bookMockupCovers from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.webp';
+import indiceImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.webp';
+import capituloAudiImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
+import introduccionImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
+import { getBooksPricing } from '../../api/payments';
+import type { ApiError, BookPricing } from '../../api/types';
+
+const defaultBookId = 'volume-i';
+
+const formatMoney = (value: number, currency: string) =>
+    new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2,
+    }).format(value);
 
 const keyThemes = [
     {
@@ -38,6 +51,38 @@ const physicalSpecs = [
 ];
 
 function Volume1Page() {
+    const [selectedBook, setSelectedBook] = useState<BookPricing | null>(null);
+    const [isPriceLoading, setIsPriceLoading] = useState(true);
+    const [priceError, setPriceError] = useState('');
+
+    useEffect(() => {
+        const loadPricing = async () => {
+            try {
+                const response = await getBooksPricing();
+                const match =
+                    response.books.find((book) => book.id === defaultBookId) ??
+                    response.books[0] ??
+                    null;
+                setSelectedBook(match);
+            } catch (error) {
+                const parsedError = error as ApiError;
+                setPriceError(parsedError.message || 'Unable to load pricing.');
+            } finally {
+                setIsPriceLoading(false);
+            }
+        };
+
+        void loadPricing();
+    }, []);
+
+    const currency = selectedBook?.currency ?? 'USD';
+    const basePrice = selectedBook?.price ?? 0;
+    const effectivePrice = selectedBook?.effectivePrice ?? 0;
+    const showSale =
+        Boolean(selectedBook?.sale) &&
+        (selectedBook?.discount ?? 0) > 0 &&
+        basePrice > effectivePrice;
+
     return (
         <main className="w-full bg-white">
             <section className="w-full border-b border-black/10">
@@ -225,9 +270,34 @@ function Volume1Page() {
                         <h2 className="text-[32px] font-semibold leading-12 text-[#0A0A0A]" style={{ fontFamily: 'Crimson Text, serif' }}>
                             Purchase
                         </h2>
-                        <p className="text-[30px] font-semibold leading-9 text-[#0A0A0A]" style={{ fontFamily: 'Crimson Text, serif' }}>
-                            $90.00
-                        </p>
+                        <div className="flex flex-col items-end gap-1">
+                            {isPriceLoading ? (
+                                <p className="text-[16px] text-[#0A0A0A]/60" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                    Loading price...
+                                </p>
+                            ) : showSale ? (
+                                <>
+                                    <p className="text-[14px] text-[#0A0A0A]/50 line-through" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                        {formatMoney(basePrice, currency)}
+                                    </p>
+                                    <p className="text-[30px] font-semibold leading-9 text-[#0A0A0A]" style={{ fontFamily: 'Crimson Text, serif' }}>
+                                        {formatMoney(effectivePrice, currency)}
+                                    </p>
+                                    <p className="rounded bg-[#F4E7E7] px-2 py-1 text-[11px] font-semibold tracking-[1px] text-[#7A1E1E] uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                        {selectedBook?.discount}% OFF
+                                    </p>
+                                </>
+                            ) : (
+                                <p className="text-[30px] font-semibold leading-9 text-[#0A0A0A]" style={{ fontFamily: 'Crimson Text, serif' }}>
+                                    {formatMoney(effectivePrice, currency)}
+                                </p>
+                            )}
+                            {priceError && !isPriceLoading && (
+                                <p className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                    {priceError}
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     <p className="mt-6 text-[17px] leading-[125%] text-[#0A0A0A]/80" style={{ fontFamily: 'Crimson Text, serif' }}>
@@ -236,12 +306,13 @@ function Volume1Page() {
                         International shipping available.
                     </p>
 
-                    <button
-                        type="button"
-                        className="mt-8 inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-8 py-3 text-base font-semibold text-white"
+                    <NavLink
+                        to="/purchase/volume-i"
+                        className="mt-8 inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-8 py-3 text-base font-semibold text-white no-underline"
+                        style={{ fontFamily: 'Inter, sans-serif' }}
                     >
                         Purchase Volume I
-                    </button>
+                    </NavLink>
                 </div>
             </section>
         </main>
@@ -249,3 +320,4 @@ function Volume1Page() {
 }
 
 export default Volume1Page;
+
