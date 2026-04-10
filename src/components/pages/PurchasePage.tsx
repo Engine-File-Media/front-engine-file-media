@@ -4,8 +4,10 @@ import { useParams } from 'react-router-dom';
 import { createCheckout, createQuote, getAddressMetadata, getBooksPricing, getShippingOptions } from '../../api/payments';
 import type { AddressMetadataResponse, ApiError, BookPricing, QuoteResponse, ShippingOption } from '../../api/types';
 import PurchaseGallery from '../purchase/PurchaseGallery';
+import PurchaseContactForm from '../purchase/PurchaseContactForm';
 import PurchasePaymentAction from '../purchase/PurchasePaymentAction';
 import PurchaseShippingForm from '../purchase/PurchaseShippingForm';
+import PurchaseShippingQuoteSection from '../purchase/PurchaseShippingQuoteSection';
 import PurchaseSummary from '../purchase/PurchaseSummary';
 import type { FieldErrors, FormState } from '../purchase/purchaseTypes';
 import { resolveVolumeConfig } from '../../data/volumes';
@@ -748,22 +750,35 @@ function PurchasePage() {
               isCountryDropdownOpen={isCountryDropdownOpen}
               setCountryQuery={setCountryQuery}
               setIsCountryDropdownOpen={setIsCountryDropdownOpen}
+              onUpdateField={updateField}
+              onHandleCountryChange={handleCountryChange}
+              formatRecipientTaxIdForInput={formatRecipientTaxIdForInput}
+              getRecipientTaxIdUxHint={getRecipientTaxIdUxHint}
+            />
+
+            <PurchaseContactForm
+              form={form}
+              errors={errors}
+              shippingInputClasses={shippingInputClasses}
               phoneDialCode={phoneDialCode}
               phonePlaceholder={phonePlaceholder}
               phoneMaxLength={phoneMaxLength}
               normalizedPhoneE164={normalizedPhoneE164}
               luluPhoneCandidate={luluPhoneCandidate}
+              onUpdateField={updateField}
+              formatPhoneForInput={formatPhoneForInput}
+            />
+
+            <PurchaseShippingQuoteSection
+              form={form}
               shippingOptions={shippingOptions}
               isShippingOptionsLoading={isShippingOptionsLoading}
               isPricingLoading={isPricingLoading}
               isQuoteLoading={isQuoteLoading}
               isCheckoutLoading={isCheckoutLoading}
+              shippingInputClasses={shippingInputClasses}
               onUpdateField={updateField}
-              onHandleCountryChange={handleCountryChange}
               onRequestQuote={requestQuote}
-              formatRecipientTaxIdForInput={formatRecipientTaxIdForInput}
-              getRecipientTaxIdUxHint={getRecipientTaxIdUxHint}
-              formatPhoneForInput={formatPhoneForInput}
             />
             <PurchasePaymentAction
               quote={quote}
