@@ -307,7 +307,7 @@ function Volume1Page() {
                     </p>
 
                     <NavLink
-                        to="/purchase"
+                        to="/purchase/volume-i"
                         className="mt-8 inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-8 py-3 text-base font-semibold text-white no-underline"
                         style={{ fontFamily: 'Inter, sans-serif' }}
                     >

@@ -28,7 +28,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/volume-i" element={<Volume1Page />} />
-        <Route path="/purchase" element={<PurchasePage />} />
+        <Route path="/purchase/:volumeId?" element={<PurchasePage />} />
         <Route path="/checkout/success" element={<PurchaseReturnPage />} />
         <Route path="/checkout/cancel" element={<PurchaseCancelPage />} />
         <Route path="/journal" element={<JournalPage />} />
