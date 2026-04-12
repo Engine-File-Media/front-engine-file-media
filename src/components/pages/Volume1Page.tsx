@@ -45,7 +45,7 @@ const distinguishingPoints = [
 const physicalSpecs = [
     { label: 'Binding', value: 'Hardcover' },
     { label: 'Page Count', value: '171 pages' },
-    { label: 'Paper Stock', value: '80gsm uncoated' },
+    { label: 'Paper Stock', value: '120gsm uncoated' },
     { label: 'Layout', value: 'Three columns' },
     { label: 'Dimensions', value: '215.9 x 279.4 mm' },
 ];
