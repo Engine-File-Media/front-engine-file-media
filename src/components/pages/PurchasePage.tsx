@@ -11,6 +11,8 @@ import PurchaseShippingQuoteSection from '../purchase/PurchaseShippingQuoteSecti
 import PurchaseStepSummaryCard from '../purchase/PurchaseStepSummaryCard';
 import PurchaseStepTimeline from '../purchase/PurchaseStepTimeline';
 import PurchaseSummary from '../purchase/PurchaseSummary';
+import TurnstileWidget from '../security/TurnstileWidget';
+import type { TurnstileWidgetRef } from '../security/TurnstileWidget';
 import type { FieldErrors, FormState } from '../purchase/purchaseTypes';
 import { resolveVolumeConfig } from '../../data/volumes';
 import {
@@ -30,6 +32,7 @@ const shippingInputClasses =
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxQuantity = 50;
 const stateCodePattern = /^[A-Z0-9-]{1,10}$/;
+const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? '';
 type StepKey = 'order' | 'address' | 'contact' | 'shipping' | 'checkout';
 
 const purchaseSteps: Array<{ key: StepKey; label: string }> = [
@@ -68,6 +71,22 @@ const clearErrorFields = (
     ...clearedErrors,
     ...nextErrors,
   };
+};
+
+const readCaptchaCode = (details: unknown): string | null => {
+  if (!details || typeof details !== 'object') {
+    return null;
+  }
+
+  const record = details as Record<string, unknown>;
+  const candidates = [
+    record.code,
+    (record.error as Record<string, unknown> | undefined)?.code,
+    (record.details as Record<string, unknown> | undefined)?.code,
+  ];
+
+  const code = candidates.find((candidate) => typeof candidate === 'string');
+  return typeof code === 'string' ? code : null;
 };
 
 const clampQuantity = (value: number) => Math.min(maxQuantity, Math.max(1, value));
@@ -173,10 +192,17 @@ function PurchasePage() {
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [countryQuery, setCountryQuery] = useState('');
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const [quoteCaptchaToken, setQuoteCaptchaToken] = useState('');
+  const [checkoutCaptchaToken, setCheckoutCaptchaToken] = useState('');
+  const [quoteCaptchaError, setQuoteCaptchaError] = useState('');
+  const [checkoutCaptchaError, setCheckoutCaptchaError] = useState('');
+  const [isCaptchaEnforced, setIsCaptchaEnforced] = useState(Boolean(turnstileSiteKey));
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [completedUntilIndex, setCompletedUntilIndex] = useState(-1);
-  const previousShippingOptionRef = useRef(form.shippingOption);
+  const quoteTurnstileRef = useRef<TurnstileWidgetRef | null>(null);
+  const checkoutTurnstileRef = useRef<TurnstileWidgetRef | null>(null);
   const currentStepKey = purchaseSteps[currentStepIndex]?.key ?? 'order';
+  const isCaptchaRequired = isCaptchaEnforced;
 
   const invalidateFromStep = useCallback((stepIndex: number) => {
     setCompletedUntilIndex((prev) => Math.min(prev, stepIndex - 1));
@@ -673,6 +699,86 @@ function PurchasePage() {
     [displayCurrency, selectedShippingOptionLabel, summaryTotal],
   );
 
+  const onQuoteCaptchaTokenChange = useCallback((token: string) => {
+    setQuoteCaptchaToken(token);
+    if (token) {
+      setQuoteCaptchaError('');
+    }
+  }, []);
+
+  const onCheckoutCaptchaTokenChange = useCallback((token: string) => {
+    setCheckoutCaptchaToken(token);
+    if (token) {
+      setCheckoutCaptchaError('');
+    }
+  }, []);
+
+  const handleQuoteCaptchaFailure = useCallback(
+    (parsedError: ApiError) => {
+      const code = readCaptchaCode(parsedError.details);
+      setQuoteCaptchaToken('');
+      quoteTurnstileRef.current?.reset();
+
+      if (parsedError.status === 401 && code === 'timeout-or-duplicate') {
+        setIsCaptchaEnforced(true);
+        const message = 'Captcha expired or already used. Please complete it again.';
+        setQuoteCaptchaError(message);
+        setApiError(message);
+        return;
+      }
+
+      if (parsedError.status === 401) {
+        setIsCaptchaEnforced(true);
+        const message =
+          'Captcha verification failed. Complete the challenge and try again.';
+        setQuoteCaptchaError(message);
+        setApiError(message);
+        return;
+      }
+
+      if (parsedError.status === 502) {
+        const message =
+          'Captcha verification service is temporarily unavailable. Please try again.';
+        setQuoteCaptchaError(message);
+        setApiError(message);
+      }
+    },
+    [],
+  );
+
+  const handleCheckoutCaptchaFailure = useCallback(
+    (parsedError: ApiError) => {
+      const code = readCaptchaCode(parsedError.details);
+      setCheckoutCaptchaToken('');
+      checkoutTurnstileRef.current?.reset();
+
+      if (parsedError.status === 401 && code === 'timeout-or-duplicate') {
+        setIsCaptchaEnforced(true);
+        const message = 'Captcha expired or already used. Please complete it again.';
+        setCheckoutCaptchaError(message);
+        setApiError(message);
+        return;
+      }
+
+      if (parsedError.status === 401) {
+        setIsCaptchaEnforced(true);
+        const message =
+          'Captcha verification failed. Complete the challenge and try again.';
+        setCheckoutCaptchaError(message);
+        setApiError(message);
+        return;
+      }
+
+      if (parsedError.status === 502) {
+        const message =
+          'Captcha verification service is temporarily unavailable. Please try again.';
+        setCheckoutCaptchaError(message);
+        setApiError(message);
+      }
+    },
+    [],
+  );
+
   const canRequestShippingOptions =
     Boolean(selectedBook?.id) &&
     Number.isFinite(form.quantity) &&
@@ -683,15 +789,6 @@ function PurchasePage() {
     Boolean(form.country.trim()) &&
     (!requiresRecipientTaxId || Boolean(normalizedRecipientTaxId)) &&
     (!requiresStateCode || Boolean(form.state.trim()));
-
-  const canAutoQuoteOnShippingSelection =
-    canRequestShippingOptions &&
-    Boolean(form.shippingOption) &&
-    Boolean(form.email.trim()) &&
-    emailPattern.test(form.email.trim()) &&
-    Boolean(form.firstName.trim()) &&
-    Boolean(form.lastName.trim()) &&
-    Boolean(normalizedPhoneE164);
 
   const requestShippingOptions = useCallback(async () => {
     if (!canRequestShippingOptions || !selectedBook) {
@@ -782,6 +879,13 @@ function PurchasePage() {
   ]);
 
   const requestQuote = useCallback(async () => {
+    if (isCaptchaRequired && !quoteCaptchaToken) {
+      const message = 'Complete captcha before requesting your quote.';
+      setQuoteCaptchaError(message);
+      setApiError(message);
+      return null;
+    }
+
     if (!validateForm()) {
       return null;
     }
@@ -791,6 +895,12 @@ function PurchasePage() {
       return null;
     }
 
+    const activeCaptchaToken = quoteCaptchaToken;
+    if (isCaptchaRequired) {
+      setQuoteCaptchaToken('');
+      setQuoteCaptchaError('');
+    }
+
     setApiError('');
     setNotice('');
     setIsQuoteLoading(true);
@@ -798,26 +908,29 @@ function PurchasePage() {
     try {
       const trimmedState = form.state.trim();
       const trimmedAddress2 = form.address2.trim();
-      const quoteResponse = await createQuote({
-        bookId: selectedBook?.id ?? resolvedVolume.bookId,
-        address: {
-          line1: form.address1.trim(),
-          ...(trimmedAddress2 ? { line2: trimmedAddress2 } : {}),
-          city: form.city.trim(),
-          postalCode: form.postalCode.trim(),
-          country: form.country,
-          isBusiness: form.isBusiness,
-          isPostbox: form.isPostbox,
-          ...(trimmedState ? { state: trimmedState.toUpperCase() } : {}),
-          ...(normalizedRecipientTaxId ? { recipientTaxId: normalizedRecipientTaxId } : {}),
+      const quoteResponse = await createQuote(
+        {
+          bookId: selectedBook?.id ?? resolvedVolume.bookId,
+          address: {
+            line1: form.address1.trim(),
+            ...(trimmedAddress2 ? { line2: trimmedAddress2 } : {}),
+            city: form.city.trim(),
+            postalCode: form.postalCode.trim(),
+            country: form.country,
+            isBusiness: form.isBusiness,
+            isPostbox: form.isPostbox,
+            ...(trimmedState ? { state: trimmedState.toUpperCase() } : {}),
+            ...(normalizedRecipientTaxId ? { recipientTaxId: normalizedRecipientTaxId } : {}),
+          },
+          phone: normalizedPhoneE164,
+          name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+          email: form.email.trim(),
+          quantity: form.quantity,
+          shippingOption: form.shippingOption,
+          currency: displayCurrency,
         },
-        phone: normalizedPhoneE164,
-        name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
-        email: form.email.trim(),
-        quantity: form.quantity,
-        shippingOption: form.shippingOption,
-        currency: displayCurrency,
-      });
+        isCaptchaRequired ? activeCaptchaToken : undefined,
+      );
 
       console.log('[PurchasePage] Quote created successfully:', {
         quoteId: quoteResponse.quoteId,
@@ -834,16 +947,25 @@ function PurchasePage() {
         status: parsedError.status,
         details: parsedError.details,
       });
-      setApiError(parsedError.message || 'Unable to calculate quote.');
+      handleQuoteCaptchaFailure(parsedError);
+      if (parsedError.status !== 401 && parsedError.status !== 502) {
+        setApiError(parsedError.message || 'Unable to calculate quote.');
+      }
       return null;
     } finally {
       setIsQuoteLoading(false);
+      if (isCaptchaRequired) {
+        quoteTurnstileRef.current?.reset();
+      }
     }
   }, [
     displayCurrency,
     form,
+    handleQuoteCaptchaFailure,
+    isCaptchaRequired,
     normalizedPhoneE164,
     normalizedRecipientTaxId,
+    quoteCaptchaToken,
     quoteFingerprint,
     resolvedVolume.bookId,
     selectedBook?.id,
@@ -895,29 +1017,6 @@ function PurchasePage() {
     validateShippingStep,
   ]);
 
-  useEffect(() => {
-    if (previousShippingOptionRef.current === form.shippingOption) {
-      return;
-    }
-
-    previousShippingOptionRef.current = form.shippingOption;
-    setQuote(null);
-    setLastQuotedFingerprint(null);
-    setNotice('');
-
-    if (!form.shippingOption || !canAutoQuoteOnShippingSelection) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      void requestQuote();
-    }, 250);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [canAutoQuoteOnShippingSelection, form.shippingOption, requestQuote]);
-
   const handleCheckoutSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     console.log('[PurchasePage] Checkout submit initiated');
@@ -933,10 +1032,22 @@ function PurchasePage() {
     setApiError('');
     setNotice('');
 
-    let activeQuote = quote;
+    if (isCaptchaRequired && !checkoutCaptchaToken) {
+      const message = 'Complete captcha before continuing to PayPal.';
+      setCheckoutCaptchaError(message);
+      setApiError(message);
+      return;
+    }
+
+    const activeQuote = quote;
     if (!activeQuote || lastQuotedFingerprint !== quoteFingerprint) {
-      console.log('[PurchasePage] Requesting fresh quote before checkout');
-      activeQuote = await requestQuote();
+      const message =
+        'Quote is outdated. Return to Shipping Method and generate a fresh quote.';
+      setApiError(message);
+      setNotice('');
+      setCurrentStepIndex(3);
+      setCompletedUntilIndex((prev) => Math.min(prev, 2));
+      return;
     }
 
     if (!activeQuote) {
@@ -944,10 +1055,19 @@ function PurchasePage() {
       return;
     }
 
+    const activeCaptchaToken = checkoutCaptchaToken;
+    if (isCaptchaRequired) {
+      setCheckoutCaptchaToken('');
+      setCheckoutCaptchaError('');
+    }
+
     setIsCheckoutLoading(true);
 
     try {
-      const checkout = await createCheckout(activeQuote.quoteId);
+      const checkout = await createCheckout(
+        activeQuote.quoteId,
+        isCaptchaRequired ? activeCaptchaToken : undefined,
+      );
       console.log('[PurchasePage] Checkout created successfully:', {
         quoteId: activeQuote.quoteId,
         paypalOrderId: checkout.paypalOrderId,
@@ -968,9 +1088,15 @@ function PurchasePage() {
         details: parsedError.details,
         quoteId: activeQuote.quoteId,
       });
-      setApiError(parsedError.message || 'Unable to start PayPal checkout.');
+      handleCheckoutCaptchaFailure(parsedError);
+      if (parsedError.status !== 401 && parsedError.status !== 502) {
+        setApiError(parsedError.message || 'Unable to start PayPal checkout.');
+      }
     } finally {
       setIsCheckoutLoading(false);
+      if (isCaptchaRequired) {
+        checkoutTurnstileRef.current?.reset();
+      }
     }
   };
 
@@ -978,7 +1104,10 @@ function PurchasePage() {
     (currentStepKey === 'order' && !isPricingLoading) ||
     (currentStepKey === 'address' && !isMetadataLoading) ||
     (currentStepKey === 'contact' && true) ||
-    (currentStepKey === 'shipping' && !isQuoteLoading && !isCheckoutLoading);
+    (currentStepKey === 'shipping' &&
+      !isQuoteLoading &&
+      !isCheckoutLoading &&
+      (!isCaptchaRequired || Boolean(quoteCaptchaToken)));
 
   const continueButtonLabel =
     currentStepKey === 'order'
@@ -988,6 +1117,40 @@ function PurchasePage() {
         : currentStepKey === 'contact'
           ? 'Continue to Shipping Method'
           : 'Continue to Checkout';
+
+  const quoteCaptchaNode = isCaptchaRequired ? (
+    <TurnstileWidget
+      ref={quoteTurnstileRef}
+      siteKey={turnstileSiteKey}
+      action="quote_submit"
+      onTokenChange={onQuoteCaptchaTokenChange}
+      onExpired={() => {
+        setQuoteCaptchaToken('');
+        setQuoteCaptchaError('Captcha expired. Please complete it again.');
+      }}
+      onError={(message) => {
+        setQuoteCaptchaToken('');
+        setQuoteCaptchaError(message);
+      }}
+    />
+  ) : null;
+
+  const checkoutCaptchaNode = isCaptchaRequired ? (
+    <TurnstileWidget
+      ref={checkoutTurnstileRef}
+      siteKey={turnstileSiteKey}
+      action="checkout_submit"
+      onTokenChange={onCheckoutCaptchaTokenChange}
+      onExpired={() => {
+        setCheckoutCaptchaToken('');
+        setCheckoutCaptchaError('Captcha expired. Please complete it again.');
+      }}
+      onError={(message) => {
+        setCheckoutCaptchaToken('');
+        setCheckoutCaptchaError(message);
+      }}
+    />
+  ) : null;
 
   return (
     <main className="w-full bg-white">
@@ -1184,6 +1347,10 @@ function PurchasePage() {
                   isCheckoutLoading={isCheckoutLoading}
                   shippingInputClasses={shippingInputClasses}
                   errors={errors}
+                  captchaToken={quoteCaptchaToken}
+                  captchaError={quoteCaptchaError}
+                  isCaptchaRequired={isCaptchaRequired}
+                  captchaNode={quoteCaptchaNode}
                   onUpdateField={updateField}
                   onRequestQuote={requestQuote}
                 />
@@ -1211,6 +1378,10 @@ function PurchasePage() {
                 isPricingLoading={isPricingLoading}
                 isCheckoutLoading={isCheckoutLoading}
                 isQuoteLoading={isQuoteLoading}
+                captchaToken={checkoutCaptchaToken}
+                captchaError={checkoutCaptchaError}
+                isCaptchaRequired={isCaptchaRequired}
+                captchaNode={checkoutCaptchaNode}
               />
             )}
           </form>

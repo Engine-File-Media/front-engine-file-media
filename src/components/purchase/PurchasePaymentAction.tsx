@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { QuoteResponse } from '../../api/types';
 
 type PurchasePaymentActionProps = {
@@ -7,6 +8,10 @@ type PurchasePaymentActionProps = {
   isPricingLoading: boolean;
   isCheckoutLoading: boolean;
   isQuoteLoading: boolean;
+  captchaToken: string;
+  captchaError: string;
+  isCaptchaRequired: boolean;
+  captchaNode: ReactNode;
 };
 
 function PurchasePaymentAction({
@@ -16,6 +21,10 @@ function PurchasePaymentAction({
   isPricingLoading,
   isCheckoutLoading,
   isQuoteLoading,
+  captchaToken,
+  captchaError,
+  isCaptchaRequired,
+  captchaNode,
 }: PurchasePaymentActionProps) {
   return (
     <section className="border border-black/10 p-5 md:p-7">
@@ -55,9 +64,28 @@ function PurchasePaymentAction({
           )}
         </div>
 
+        <div className="space-y-2">
+          {captchaNode}
+          {isCaptchaRequired && (
+            <p className="text-[12px] text-[#0A0A0A]/65" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Complete captcha before continuing to PayPal.
+            </p>
+          )}
+          {captchaError && (
+            <p className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {captchaError}
+            </p>
+          )}
+        </div>
+
         <button
           type="submit"
-          disabled={isPricingLoading || isCheckoutLoading || isQuoteLoading}
+          disabled={
+            isPricingLoading ||
+            isCheckoutLoading ||
+            isQuoteLoading ||
+            (isCaptchaRequired && !captchaToken)
+          }
           className="inline-flex w-full items-center justify-center border border-[#030213] bg-[#030213] px-6 py-3 text-[13px] font-semibold tracking-[1.6px] text-white uppercase disabled:cursor-not-allowed disabled:opacity-50"
           style={{ fontFamily: 'Inter, sans-serif' }}
         >

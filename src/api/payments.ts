@@ -57,7 +57,7 @@ export const getShippingOptions = async (payload: CreateShippingOptionsRequest) 
   }
 };
 
-export const createQuote = async (payload: CreateQuoteRequest) => {
+export const createQuote = async (payload: CreateQuoteRequest, captchaToken?: string) => {
   console.log('💰 [createQuote] Creating quote', {
     bookId: payload.bookId,
     quantity: payload.quantity,
@@ -65,7 +65,9 @@ export const createQuote = async (payload: CreateQuoteRequest) => {
     country: payload.address.country,
   });
   try {
-    const { data } = await client.post<QuoteResponse>('/quotes', payload);
+    const { data } = await client.post<QuoteResponse>('/quotes', payload, {
+      headers: captchaToken ? { 'X-Captcha-Token': captchaToken } : undefined,
+    });
     console.log('✅ [createQuote] Success', {
       quoteId: data.quoteId,
       total: data.costs.total,
@@ -78,10 +80,16 @@ export const createQuote = async (payload: CreateQuoteRequest) => {
   }
 };
 
-export const createCheckout = async (quoteId: string) => {
+export const createCheckout = async (quoteId: string, captchaToken?: string) => {
   console.log('🛒 [createCheckout] Creating checkout for quote', { quoteId });
   try {
-    const { data } = await client.post<CheckoutResponse>('/checkouts', { quoteId });
+    const { data } = await client.post<CheckoutResponse>(
+      '/checkouts',
+      { quoteId },
+      {
+        headers: captchaToken ? { 'X-Captcha-Token': captchaToken } : undefined,
+      },
+    );
     console.log('✅ [createCheckout] Success', {
       approveUrl: data.approveUrl?.substring(0, 50) + '...',
       paypalOrderId: data.paypalOrderId,

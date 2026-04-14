@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ShippingOption } from '../../api/types';
 import type { FieldErrors } from './purchaseTypes';
 import type { FormState } from './purchaseTypes';
@@ -11,6 +12,10 @@ type PurchaseShippingQuoteSectionProps = {
   isCheckoutLoading: boolean;
   shippingInputClasses: string;
   errors: FieldErrors;
+  captchaToken: string;
+  captchaError: string;
+  isCaptchaRequired: boolean;
+  captchaNode: ReactNode;
   onUpdateField: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   onRequestQuote: () => Promise<unknown>;
 };
@@ -31,6 +36,10 @@ function PurchaseShippingQuoteSection({
   isCheckoutLoading,
   shippingInputClasses,
   errors,
+  captchaToken,
+  captchaError,
+  isCaptchaRequired,
+  captchaNode,
   onUpdateField,
   onRequestQuote,
 }: PurchaseShippingQuoteSectionProps) {
@@ -93,13 +102,33 @@ function PurchaseShippingQuoteSection({
         </p>
       </div>
 
+      <div className="mt-5 space-y-2">
+        {captchaNode}
+        {isCaptchaRequired && (
+          <p className="text-[12px] text-[#0A0A0A]/65" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Complete captcha before requesting your quote.
+          </p>
+        )}
+        {captchaError && (
+          <p className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            {captchaError}
+          </p>
+        )}
+      </div>
+
       <div className="mt-5">
         <button
           type="button"
           onClick={() => {
             void onRequestQuote();
           }}
-          disabled={isPricingLoading || isQuoteLoading || isCheckoutLoading || !form.shippingOption}
+          disabled={
+            isPricingLoading ||
+            isQuoteLoading ||
+            isCheckoutLoading ||
+            !form.shippingOption ||
+            (isCaptchaRequired && !captchaToken)
+          }
           className="inline-flex w-full items-center justify-center border border-black/15 bg-white px-6 py-3 text-[13px] font-semibold tracking-[1.6px] text-[#0A0A0A] uppercase disabled:cursor-not-allowed disabled:opacity-50"
           style={{ fontFamily: 'Inter, sans-serif' }}
         >
