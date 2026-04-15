@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { capturePaypalOrder } from '../../api/payments';
-import { clearPurchaseState, getPurchaseState } from '../../utils/storage';
+import {
+  getPurchaseState,
+  setPurchaseResultStatus,
+} from '../../utils/storage';
 import type { ApiError } from '../../api/types';
 
 function PurchaseReturnPage() {
@@ -22,6 +25,7 @@ function PurchaseReturnPage() {
       const paypalOrderId = token || stored?.paypalOrderId;
 
       if (!paypalOrderId) {
+        setPurchaseResultStatus('error');
         setStatus('error');
         setMessage('Missing PayPal order reference. Please restart the checkout flow.');
         return;
@@ -37,13 +41,14 @@ function PurchaseReturnPage() {
           orderId: stored?.orderId,
           ...(Object.keys(luluPayload).length > 0 ? { lulu: luluPayload } : {}),
         });
-        clearPurchaseState();
+        setPurchaseResultStatus('captured');
         setStatus('success');
         setMessage(
           `Payment captured. Order ${response.order.id} is now ${response.order.status}.`,
         );
       } catch (error) {
         const apiError = error as ApiError;
+        setPurchaseResultStatus('error');
         setStatus('error');
         setMessage(apiError.message || 'Unable to capture PayPal payment.');
       }
@@ -73,11 +78,11 @@ function PurchaseReturnPage() {
 
         {status !== 'loading' && (
           <Link
-            to="/purchase"
+            to="/volume-i"
             className="mt-7 inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-6 py-3 text-[13px] font-semibold tracking-[1.6px] text-white uppercase"
             style={{ fontFamily: 'Inter, sans-serif' }}
           >
-            Back to purchase page
+            Back to Volume I
           </Link>
         )}
       </section>

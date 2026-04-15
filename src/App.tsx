@@ -11,6 +11,7 @@ import PurchaseReturnPage from './components/pages/PurchaseReturnPage';
 import PurchaseCancelPage from './components/pages/PurchaseCancelPage';
 import JournalPage from './components/pages/JournalPage';
 import NotFoundPage from './components/pages/NotFoundPage';
+import { RequirePurchaseEntry, RequirePurchaseResult } from './components/routes/PurchaseFlowGuards';
 
 function App() {
   const { pathname } = useLocation();
@@ -28,9 +29,13 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/volume-i" element={<Volume1Page />} />
-        <Route path="/purchase/:volumeId?" element={<PurchasePage />} />
-        <Route path="/checkout/success" element={<PurchaseReturnPage />} />
-        <Route path="/checkout/cancel" element={<PurchaseCancelPage />} />
+        <Route element={<RequirePurchaseEntry />}>
+          <Route path="/purchase/:volumeId?" element={<PurchasePage />} />
+        </Route>
+        <Route element={<RequirePurchaseResult />}>
+          <Route path="/checkout/success" element={<PurchaseReturnPage />} />
+          <Route path="/checkout/cancel" element={<PurchaseCancelPage />} />
+        </Route>
         <Route path="/journal" element={<JournalPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

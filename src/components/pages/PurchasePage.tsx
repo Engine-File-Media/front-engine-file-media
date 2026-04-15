@@ -24,7 +24,10 @@ import {
   isLuluPhonePatternValid,
   normalizePhoneToE164,
 } from '../../utils/phone';
-import { savePurchaseState } from '../../utils/storage';
+import {
+  markPurchaseResultPending,
+  savePurchaseState,
+} from '../../utils/storage';
 
 const shippingInputClasses =
   'h-11 w-full border border-black/20 bg-white px-3 text-[14px] text-[#0A0A0A] outline-none transition-colors focus:border-black/45';
@@ -1079,6 +1082,7 @@ function PurchasePage() {
         phoneE164: normalizedPhoneE164,
         contactEmail: form.email.trim(),
       });
+      markPurchaseResultPending();
       window.location.assign(checkout.approveUrl);
     } catch (error) {
       const parsedError = error as ApiError;
