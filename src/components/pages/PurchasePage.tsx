@@ -1113,6 +1113,12 @@ function PurchasePage() {
   }, [form.shippingOption]);
 
   const requestQuote = useCallback(async () => {
+    if (quote && lastQuotedFingerprint === quoteFingerprint) {
+      setApiError('');
+      setNotice('Using your current quote. You can continue to checkout.');
+      return quote;
+    }
+
     if (isSessionBootstrapping) {
       setApiError('Preparing secure purchase session. Please wait a moment.');
       return null;
@@ -1245,7 +1251,9 @@ function PurchasePage() {
       }
 
       if (parsedError.status === 409) {
-        setApiError('Purchase state conflict detected. Update details and request quote again.');
+        clearPurchaseSession();
+        setPurchaseSessionId('');
+        setApiError('Purchase session conflict detected. We reset your session; please calculate quote again.');
         return null;
       }
 
@@ -1276,7 +1284,9 @@ function PurchasePage() {
     bootstrapPurchaseSession,
     normalizedPhoneE164,
     normalizedRecipientTaxId,
+    lastQuotedFingerprint,
     purchaseSessionId,
+    quote,
     quoteCaptchaToken,
     quoteFingerprint,
     resolvedVolume.bookId,
@@ -1313,6 +1323,12 @@ function PurchasePage() {
       if (!validateShippingStep()) {
         return;
       }
+
+      if (quote && lastQuotedFingerprint === quoteFingerprint) {
+        moveToNextStep(3);
+        return;
+      }
+
       const nextQuote = await requestQuote();
       if (!nextQuote) {
         return;
@@ -1321,7 +1337,10 @@ function PurchasePage() {
     }
   }, [
     currentStepKey,
+    lastQuotedFingerprint,
     moveToNextStep,
+    quote,
+    quoteFingerprint,
     requestQuote,
     validateAddressStep,
     validateContactStep,
