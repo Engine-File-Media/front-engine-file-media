@@ -6,6 +6,7 @@ import type { FormState } from './purchaseTypes';
 type PurchaseShippingQuoteSectionProps = {
   form: FormState;
   shippingOptions: ShippingOption[];
+  isSessionBootstrapping: boolean;
   isShippingOptionsLoading: boolean;
   isPricingLoading: boolean;
   isQuoteLoading: boolean;
@@ -30,6 +31,7 @@ const formatMoney = (value: number, currency: string) =>
 function PurchaseShippingQuoteSection({
   form,
   shippingOptions,
+  isSessionBootstrapping,
   isShippingOptionsLoading,
   isPricingLoading,
   isQuoteLoading,
@@ -65,6 +67,9 @@ function PurchaseShippingQuoteSection({
             onChange={(event) => onUpdateField('shippingOption', event.target.value)}
             disabled={isShippingOptionsLoading || shippingOptions.length === 0}
           >
+            {!isShippingOptionsLoading && shippingOptions.length > 0 && (
+              <option value="">Select a shipping option</option>
+            )}
             {isShippingOptionsLoading && <option value="">Loading shipping options...</option>}
             {!isShippingOptionsLoading && shippingOptions.length === 0 && (
               <option value="">Fill address to load options</option>
@@ -98,7 +103,7 @@ function PurchaseShippingQuoteSection({
 
       <div className="mt-5 border border-black/10 bg-[#F9F9F9] px-4 py-3">
         <p className="text-[13px] leading-[1.4] text-[#0A0A0A]/70" style={{ fontFamily: 'Inter, sans-serif' }}>
-          Shipping options are loaded automatically when the address is complete. Generate the quote to see the full cost breakdown.
+          Shipping options are loaded automatically when the address is complete. Select one option, complete captcha, then generate quote to see the full cost breakdown.
         </p>
       </div>
 
@@ -123,6 +128,7 @@ function PurchaseShippingQuoteSection({
             void onRequestQuote();
           }}
           disabled={
+            isSessionBootstrapping ||
             isPricingLoading ||
             isQuoteLoading ||
             isCheckoutLoading ||

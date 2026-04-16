@@ -6,10 +6,21 @@ import type {
   CaptureResponse,
   CheckoutResponse,
   CreateQuoteRequest,
+  PurchaseSessionResponse,
   CreateShippingOptionsRequest,
   QuoteResponse,
   ShippingOptionsResponse,
 } from './types';
+
+type SecurePurchaseHeaders = {
+  purchaseSessionId: string;
+  idempotencyKey: string;
+  captchaToken: string;
+};
+
+type CaptureHeaders = {
+  idempotencyKey: string;
+};
 
 export const getBooksPricing = async () => {
   console.log('📚 [getBooksPricing] Fetching books pricing...');
@@ -57,7 +68,24 @@ export const getShippingOptions = async (payload: CreateShippingOptionsRequest) 
   }
 };
 
-export const createQuote = async (payload: CreateQuoteRequest, captchaToken?: string) => {
+export const createPurchaseSession = async (bookId: string) => {
+  console.log('🔐 [createPurchaseSession] Creating purchase session', { bookId });
+  try {
+    const { data } = await client.post<PurchaseSessionResponse>('/purchase-sessions', { bookId });
+    console.log('✅ [createPurchaseSession] Success', {
+      sessionId: data.sessionId,
+      state: data.state,
+      expiresAt: data.expiresAt,
+      allowedBookId: data.allowedBookId,
+    });
+    return data;
+  } catch (error) {
+    console.error('❌ [createPurchaseSession] Failed', error);
+    throw toApiError(error);
+  }
+};
+
+export const createQuote = async (payload: CreateQuoteRequest, secureHeaders: SecurePurchaseHeaders) => {
   console.log('💰 [createQuote] Creating quote', {
     bookId: payload.bookId,
     quantity: payload.quantity,
@@ -66,7 +94,11 @@ export const createQuote = async (payload: CreateQuoteRequest, captchaToken?: st
   });
   try {
     const { data } = await client.post<QuoteResponse>('/quotes', payload, {
-      headers: captchaToken ? { 'X-Captcha-Token': captchaToken } : undefined,
+      headers: {
+        'X-Purchase-Session': secureHeaders.purchaseSessionId,
+        'Idempotency-Key': secureHeaders.idempotencyKey,
+        'X-Captcha-Token': secureHeaders.captchaToken,
+      },
     });
     console.log('✅ [createQuote] Success', {
       quoteId: data.quoteId,
@@ -80,14 +112,18 @@ export const createQuote = async (payload: CreateQuoteRequest, captchaToken?: st
   }
 };
 
-export const createCheckout = async (quoteId: string, captchaToken?: string) => {
+export const createCheckout = async (quoteId: string, secureHeaders: SecurePurchaseHeaders) => {
   console.log('🛒 [createCheckout] Creating checkout for quote', { quoteId });
   try {
     const { data } = await client.post<CheckoutResponse>(
       '/checkouts',
       { quoteId },
       {
-        headers: captchaToken ? { 'X-Captcha-Token': captchaToken } : undefined,
+        headers: {
+          'X-Purchase-Session': secureHeaders.purchaseSessionId,
+          'Idempotency-Key': secureHeaders.idempotencyKey,
+          'X-Captcha-Token': secureHeaders.captchaToken,
+        },
       },
     );
     console.log('✅ [createCheckout] Success', {
@@ -104,12 +140,20 @@ export const createCheckout = async (quoteId: string, captchaToken?: string) => 
 export const capturePaypalOrder = async (
   paypalOrderId: string,
   payload?: CaptureRequest,
+  secureHeaders?: CaptureHeaders,
 ) => {
   console.log('🎯 [capturePaypalOrder] Capturing PayPal order', { paypalOrderId });
   try {
     const { data } = await client.post<CaptureResponse>(
       `/paypal/orders/${paypalOrderId}/captures`,
       payload ?? {},
+      {
+        headers: secureHeaders
+          ? {
+              'Idempotency-Key': secureHeaders.idempotencyKey,
+            }
+          : undefined,
+      },
     );
     console.log('✅ [capturePaypalOrder] Success', {
       orderStatus: data.order.status,

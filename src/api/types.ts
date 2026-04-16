@@ -22,6 +22,21 @@ export type BooksPricingResponse = {
   books: BookPricing[];
 };
 
+export type PurchaseSessionState =
+  | 'session_created'
+  | 'quote_created'
+  | 'checkout_created'
+  | 'capture_pending'
+  | 'captured'
+  | string;
+
+export type PurchaseSessionResponse = {
+  sessionId: string;
+  state: PurchaseSessionState;
+  expiresAt: string;
+  allowedBookId?: string;
+};
+
 export type Country = {
   code: string;
   name: string;
@@ -220,8 +235,14 @@ export type CaptureResponse = {
   luluStatus?: string;
 };
 
+export type ApiErrorDetails = {
+  code?: string;
+  retryable?: boolean;
+  [key: string]: unknown;
+};
+
 export type ApiError = {
   status?: number;
   message: string;
-  details?: unknown;
+  details?: ApiErrorDetails;
 };

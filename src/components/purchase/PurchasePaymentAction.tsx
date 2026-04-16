@@ -5,6 +5,7 @@ type PurchasePaymentActionProps = {
   quote: QuoteResponse | null;
   quoteFingerprint: string;
   lastQuotedFingerprint: string | null;
+  isSessionBootstrapping: boolean;
   isPricingLoading: boolean;
   isCheckoutLoading: boolean;
   isQuoteLoading: boolean;
@@ -18,6 +19,7 @@ function PurchasePaymentAction({
   quote,
   quoteFingerprint,
   lastQuotedFingerprint,
+  isSessionBootstrapping,
   isPricingLoading,
   isCheckoutLoading,
   isQuoteLoading,
@@ -81,6 +83,7 @@ function PurchasePaymentAction({
         <button
           type="submit"
           disabled={
+            isSessionBootstrapping ||
             isPricingLoading ||
             isCheckoutLoading ||
             isQuoteLoading ||

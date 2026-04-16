@@ -72,7 +72,7 @@ const TurnstileWidget = forwardRef<TurnstileWidgetRef, TurnstileWidgetProps>(
   }, ref) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const widgetIdRef = useRef<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(Boolean(siteKey));
 
     const reset = useCallback(() => {
       onTokenChange('');
@@ -87,7 +87,6 @@ const TurnstileWidget = forwardRef<TurnstileWidgetRef, TurnstileWidgetProps>(
       let isMounted = true;
 
       if (!siteKey) {
-        setIsLoading(false);
         return;
       }
 

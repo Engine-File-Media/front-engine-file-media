@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { capturePaypalOrder } from '../../api/payments';
 import {
+  clearPurchaseSession,
   getPurchaseState,
+  resolveIdempotencyKey,
   setPurchaseResultStatus,
 } from '../../utils/storage';
 import type { ApiError } from '../../api/types';
+
+const hashPayload = (payload: unknown) => JSON.stringify(payload);
 
 function PurchaseReturnPage() {
   const [searchParams] = useSearchParams();
@@ -37,9 +41,18 @@ function PurchaseReturnPage() {
           ...(stored?.phoneE164 ? { phoneNumber: stored.phoneE164 } : {}),
         };
 
-        const response = await capturePaypalOrder(paypalOrderId, {
+        const capturePayload = {
           orderId: stored?.orderId,
           ...(Object.keys(luluPayload).length > 0 ? { lulu: luluPayload } : {}),
+        };
+        const capturePayloadHash = hashPayload({
+          paypalOrderId,
+          payload: capturePayload,
+        });
+        const idempotencyKey = resolveIdempotencyKey('capture', capturePayloadHash, paypalOrderId);
+
+        const response = await capturePaypalOrder(paypalOrderId, capturePayload, {
+          idempotencyKey,
         });
         setPurchaseResultStatus('captured');
         setStatus('success');
@@ -50,6 +63,28 @@ function PurchaseReturnPage() {
         const apiError = error as ApiError;
         setPurchaseResultStatus('error');
         setStatus('error');
+
+        if (apiError.status === 410) {
+          clearPurchaseSession();
+          setMessage('Purchase session expired. Please return to Volume I and start again.');
+          return;
+        }
+
+        if (apiError.status === 401) {
+          setMessage('Session is invalid for capture. Please restart purchase from Volume I.');
+          return;
+        }
+
+        if (apiError.status === 409) {
+          setMessage('Capture conflict detected. Wait a moment and retry from this page once.');
+          return;
+        }
+
+        if (apiError.status === 400) {
+          setMessage('Capture request is invalid. Please restart the purchase flow.');
+          return;
+        }
+
         setMessage(apiError.message || 'Unable to capture PayPal payment.');
       }
     };
