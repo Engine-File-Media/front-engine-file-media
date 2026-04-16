@@ -22,9 +22,8 @@ type UsePurchaseCheckoutArgs = {
   clearPurchaseSessionContext: () => void;
   setCurrentStepIndex: Dispatch<SetStateAction<number>>;
   setCompletedUntilIndex: Dispatch<SetStateAction<number>>;
-  setNotice: (value: string) => void;
-  setApiError: (value: string) => void;
   setCheckoutCaptchaError: (value: string) => void;
+  onInternalError: (message: string) => void;
   onCheckoutCaptchaFailure: (parsedError: ApiError) => void;
   resetCheckoutCaptcha: () => void;
 };
@@ -48,9 +47,8 @@ export const usePurchaseCheckout = ({
   clearPurchaseSessionContext,
   setCurrentStepIndex,
   setCompletedUntilIndex,
-  setNotice,
-  setApiError,
   setCheckoutCaptchaError,
+  onInternalError,
   onCheckoutCaptchaFailure,
   resetCheckoutCaptcha,
 }: UsePurchaseCheckoutArgs): UsePurchaseCheckoutResult => {
@@ -64,35 +62,31 @@ export const usePurchaseCheckout = ({
         return;
       }
 
-      setApiError('');
-      setNotice('');
-
       if (isSessionBootstrapping) {
-        setApiError('Preparing secure purchase session. Please wait a moment.');
+        onInternalError('Preparing secure purchase session.');
         return;
       }
 
       if (!purchaseSessionId) {
-        setApiError('Secure purchase session is missing. Please restart purchase.');
+        onInternalError('Secure purchase session is missing.');
         return;
       }
 
       if (!turnstileSiteKey) {
-        setApiError('Captcha configuration is missing. Set VITE_TURNSTILE_SITE_KEY to continue.');
+        onInternalError('Captcha configuration is missing. Set VITE_TURNSTILE_SITE_KEY to continue.');
         return;
       }
 
       if (isCaptchaRequired && !checkoutCaptchaToken) {
         const message = 'Complete captcha before continuing to PayPal.';
         setCheckoutCaptchaError(message);
-        setApiError(message);
+        onInternalError(message);
         return;
       }
 
       const activeQuote = quote;
       if (!activeQuote || lastQuotedFingerprint !== quoteFingerprint) {
-        setApiError('Quote is outdated. Return to Shipping Method and generate a fresh quote.');
-        setNotice('');
+        onInternalError('Quote is outdated at checkout submit.');
         setCurrentStepIndex(3);
         setCompletedUntilIndex((prev) => Math.min(prev, 2));
         return;
@@ -132,10 +126,9 @@ export const usePurchaseCheckout = ({
 
         if (parsedError.status === 410) {
           clearPurchaseSessionContext();
-          setApiError('Your purchase session expired. We are creating a new session, then please generate a fresh quote.');
+          onInternalError('Purchase session expired during checkout.');
           setCurrentStepIndex(3);
           setCompletedUntilIndex((prev) => Math.min(prev, 2));
-          setNotice('');
           void bootstrapPurchaseSession(true);
           return;
         }
@@ -144,20 +137,20 @@ export const usePurchaseCheckout = ({
           onCheckoutCaptchaFailure(parsedError);
           const code = readApiCode(parsedError.details);
           if (code !== 'timeout-or-duplicate') {
-            setApiError('Session or captcha is invalid. Complete captcha again and retry checkout.');
+            onInternalError('Session or captcha is invalid during checkout.');
           }
           return;
         }
 
         if (parsedError.status === 409) {
-          setApiError('Checkout state conflict detected. Generate a fresh quote and try again.');
+          onInternalError('Checkout state conflict detected.');
           setCurrentStepIndex(3);
           setCompletedUntilIndex((prev) => Math.min(prev, 2));
           return;
         }
 
         if (parsedError.status === 400) {
-          setApiError('Invalid checkout request. Review your quote and try again.');
+          onInternalError('Invalid checkout payload sent to backend.');
           return;
         }
 
@@ -166,7 +159,7 @@ export const usePurchaseCheckout = ({
           return;
         }
 
-        setApiError(parsedError.message || 'Unable to start PayPal checkout.');
+        onInternalError(parsedError.message || 'Unable to start PayPal checkout.');
       } finally {
         setIsCheckoutLoading(false);
         resetCheckoutCaptcha();
@@ -176,22 +169,21 @@ export const usePurchaseCheckout = ({
       bootstrapPurchaseSession,
       clearPurchaseSessionContext,
       contactEmail,
+      checkoutCaptchaToken,
       isCaptchaRequired,
       isCheckoutLoading,
       isSessionBootstrapping,
       lastQuotedFingerprint,
-      checkoutCaptchaToken,
       normalizedPhoneE164,
+      onInternalError,
       onCheckoutCaptchaFailure,
       purchaseSessionId,
       quote,
       quoteFingerprint,
       resetCheckoutCaptcha,
-      setApiError,
       setCheckoutCaptchaError,
       setCompletedUntilIndex,
       setCurrentStepIndex,
-      setNotice,
     ],
   );
 

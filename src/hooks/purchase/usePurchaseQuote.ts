@@ -27,10 +27,10 @@ type UsePurchaseQuoteArgs = {
   setErrors: Dispatch<SetStateAction<FieldErrors>>;
   setQuote: Dispatch<SetStateAction<QuoteResponse | null>>;
   setLastQuotedFingerprint: Dispatch<SetStateAction<string | null>>;
-  setNotice: Dispatch<SetStateAction<string>>;
-  setApiError: Dispatch<SetStateAction<string>>;
   setQuoteCaptchaError: Dispatch<SetStateAction<string>>;
   clearPurchaseSessionContext: () => void;
+  onInternalError: (message: string) => void;
+  onInfo: (message: string) => void;
   onQuoteCaptchaFailure: (parsedError: ApiError) => void;
   resetQuoteCaptcha: () => void;
 };
@@ -59,10 +59,10 @@ export const usePurchaseQuote = ({
   setErrors,
   setQuote,
   setLastQuotedFingerprint,
-  setNotice,
-  setApiError,
   setQuoteCaptchaError,
   clearPurchaseSessionContext,
+  onInternalError,
+  onInfo,
   onQuoteCaptchaFailure,
   resetQuoteCaptcha,
 }: UsePurchaseQuoteArgs): UsePurchaseQuoteResult => {
@@ -70,13 +70,12 @@ export const usePurchaseQuote = ({
 
   const requestQuote = useCallback(async () => {
     if (quote && lastQuotedFingerprint === quoteFingerprint) {
-      setApiError('');
-      setNotice('Using your current quote. You can continue to checkout.');
+      onInfo('Using current quote without recalculation.');
       return quote;
     }
 
     if (isSessionBootstrapping) {
-      setApiError('Preparing secure purchase session. Please wait a moment.');
+      onInternalError('Preparing secure purchase session.');
       return null;
     }
 
@@ -89,7 +88,7 @@ export const usePurchaseQuote = ({
     }
 
     if (!turnstileSiteKey) {
-      setApiError('Captcha configuration is missing. Set VITE_TURNSTILE_SITE_KEY to continue.');
+      onInternalError('Captcha configuration is missing. Set VITE_TURNSTILE_SITE_KEY to continue.');
       return null;
     }
 
@@ -97,7 +96,7 @@ export const usePurchaseQuote = ({
       const message = 'Complete captcha before requesting your quote.';
       setQuoteCaptchaError(message);
       setErrors((prev) => ({ ...prev, shippingOption: 'Select a shipping option.' }));
-      setApiError(message);
+      onInternalError(message);
       return null;
     }
 
@@ -110,8 +109,6 @@ export const usePurchaseQuote = ({
       return null;
     }
 
-    setApiError('');
-    setNotice('');
     setIsQuoteLoading(true);
 
     try {
@@ -150,15 +147,14 @@ export const usePurchaseQuote = ({
 
       setQuote(quoteResponse);
       setLastQuotedFingerprint(quoteFingerprint);
-      setNotice('Quote generated successfully. You can continue to PayPal.');
+      onInfo('Quote generated successfully.');
       return quoteResponse;
     } catch (error) {
       const parsedError = error as ApiError;
 
       if (parsedError.status === 410) {
         clearPurchaseSessionContext();
-        setApiError('Your purchase session expired. We are creating a new session, then please request quote again.');
-        setNotice('');
+        onInternalError('Purchase session expired. Bootstrapping a new session.');
         void bootstrapPurchaseSession(true);
         return null;
       }
@@ -167,19 +163,19 @@ export const usePurchaseQuote = ({
         onQuoteCaptchaFailure(parsedError);
         const code = readApiCode(parsedError.details);
         if (code !== 'timeout-or-duplicate') {
-          setApiError('Session or captcha is invalid. Complete captcha again and retry.');
+          onInternalError('Session or captcha is invalid during quote request.');
         }
         return null;
       }
 
       if (parsedError.status === 409) {
         clearPurchaseSessionContext();
-        setApiError('Purchase session conflict detected. We reset your session; please calculate quote again.');
+        onInternalError('Purchase session conflict detected during quote request.');
         return null;
       }
 
       if (parsedError.status === 400) {
-        setApiError('Invalid request data. Review fields and try again.');
+        onInternalError('Invalid quote payload sent to backend.');
         return null;
       }
 
@@ -188,7 +184,7 @@ export const usePurchaseQuote = ({
         return null;
       }
 
-      setApiError(parsedError.message || 'Unable to calculate quote.');
+      onInternalError(parsedError.message || 'Unable to calculate quote.');
       return null;
     } finally {
       setIsQuoteLoading(false);
@@ -213,12 +209,12 @@ export const usePurchaseQuote = ({
     quoteFingerprint,
     resetQuoteCaptcha,
     selectedBookId,
-    setApiError,
     setErrors,
     setLastQuotedFingerprint,
-    setNotice,
     setQuote,
     validateForm,
+    onInternalError,
+    onInfo,
   ]);
 
   return {

@@ -152,8 +152,6 @@ function PurchasePage() {
   const [isMetadataLoading, setIsMetadataLoading] = useState(false);
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [lastQuotedFingerprint, setLastQuotedFingerprint] = useState<string | null>(null);
-  const [notice, setNotice] = useState('');
-  const [apiError, setApiError] = useState('');
   const [countryQuery, setCountryQuery] = useState('');
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const [stateQuery, setStateQuery] = useState('');
@@ -170,12 +168,24 @@ function PurchasePage() {
   const currentStepKey = purchaseSteps[currentStepIndex]?.key ?? 'order';
   const isCaptchaRequired = isCaptchaEnforced;
 
+  const reportInternalIssue = useCallback((message: string) => {
+    if (message) {
+      console.error('[PurchasePage]', message);
+    }
+  }, []);
+
+  const reportInfo = useCallback((message: string) => {
+    if (message) {
+      console.log('[PurchasePage]', message);
+    }
+  }, []);
+
   const {
     purchaseSessionId,
     isSessionBootstrapping,
     bootstrapPurchaseSession,
     clearPurchaseSessionContext,
-  } = usePurchaseSession(resolvedVolume.bookId, setApiError);
+  } = usePurchaseSession(resolvedVolume.bookId, reportInternalIssue);
 
   const invalidateFromStep = useCallback((stepIndex: number) => {
     setCompletedUntilIndex((prev) => Math.min(prev, stepIndex - 1));
@@ -184,7 +194,6 @@ function PurchasePage() {
     if (stepIndex <= 3) {
       setQuote(null);
       setLastQuotedFingerprint(null);
-      setNotice('');
 
       // Only clear secure session if a quote already existed.
       // This avoids session churn while user is still choosing shipping options.
@@ -268,7 +277,7 @@ function PurchasePage() {
     purchaseSessionId,
     shippingOption: form.shippingOption,
     setForm,
-    onError: setApiError,
+    onError: reportInternalIssue,
   });
 
   usePurchaseDraft({
@@ -342,14 +351,14 @@ function PurchasePage() {
           message: parsedError.message,
           status: parsedError.status,
         });
-        setApiError(parsedError.message || 'Unable to load checkout data.');
+        reportInternalIssue(parsedError.message || 'Unable to load checkout data.');
       } finally {
         setIsPricingLoading(false);
       }
     };
 
     void loadInitialData();
-  }, [resolvedVolume.bookId]);
+  }, [reportInternalIssue, resolvedVolume.bookId]);
 
   const quoteFingerprint = useMemo(
     () =>
@@ -405,7 +414,6 @@ function PurchasePage() {
         recipientTaxId: '',
         phone: formatPhoneForInput(prev.phone, newCountryCode),
       }));
-      setNotice('');
       setStateQuery('');
       setIsStateDropdownOpen(false);
       
@@ -424,12 +432,12 @@ function PurchasePage() {
           country: newCountryCode,
           message: parsedError.message,
         });
-        setApiError(parsedError.message || `Unable to load metadata for ${newCountryCode}.`);
+        reportInternalIssue(parsedError.message || `Unable to load metadata for ${newCountryCode}.`);
       } finally {
         setIsMetadataLoading(false);
       }
     },
-    [],
+    [reportInternalIssue],
   );
 
   const increaseQuantity = () => {
@@ -752,7 +760,7 @@ function PurchasePage() {
         setIsCaptchaEnforced(true);
         const message = 'Captcha expired or already used. Please complete it again.';
         setQuoteCaptchaError(message);
-        setApiError(message);
+        reportInternalIssue(message);
         return;
       }
 
@@ -761,7 +769,7 @@ function PurchasePage() {
         const message =
           'Captcha verification failed. Complete the challenge and try again.';
         setQuoteCaptchaError(message);
-        setApiError(message);
+        reportInternalIssue(message);
         return;
       }
 
@@ -769,10 +777,10 @@ function PurchasePage() {
         const message =
           'Captcha verification service is temporarily unavailable. Please try again.';
         setQuoteCaptchaError(message);
-        setApiError(message);
+        reportInternalIssue(message);
       }
     },
-    [],
+    [reportInternalIssue],
   );
 
   const handleCheckoutCaptchaFailure = useCallback(
@@ -785,7 +793,7 @@ function PurchasePage() {
         setIsCaptchaEnforced(true);
         const message = 'Captcha expired or already used. Please complete it again.';
         setCheckoutCaptchaError(message);
-        setApiError(message);
+        reportInternalIssue(message);
         return;
       }
 
@@ -794,7 +802,7 @@ function PurchasePage() {
         const message =
           'Captcha verification failed. Complete the challenge and try again.';
         setCheckoutCaptchaError(message);
-        setApiError(message);
+        reportInternalIssue(message);
         return;
       }
 
@@ -802,10 +810,10 @@ function PurchasePage() {
         const message =
           'Captcha verification service is temporarily unavailable. Please try again.';
         setCheckoutCaptchaError(message);
-        setApiError(message);
+        reportInternalIssue(message);
       }
     },
-    [],
+    [reportInternalIssue],
   );
 
   const resetQuoteCaptcha = useCallback(() => {
@@ -840,10 +848,10 @@ function PurchasePage() {
     setErrors,
     setQuote,
     setLastQuotedFingerprint,
-    setNotice,
-    setApiError,
     setQuoteCaptchaError,
     clearPurchaseSessionContext,
+    onInternalError: reportInternalIssue,
+    onInfo: reportInfo,
     onQuoteCaptchaFailure: handleQuoteCaptchaFailure,
     resetQuoteCaptcha,
   });
@@ -865,9 +873,8 @@ function PurchasePage() {
     clearPurchaseSessionContext,
     setCurrentStepIndex,
     setCompletedUntilIndex,
-    setNotice,
-    setApiError,
     setCheckoutCaptchaError,
+    onInternalError: reportInternalIssue,
     onCheckoutCaptchaFailure: handleCheckoutCaptchaFailure,
     resetCheckoutCaptcha,
   });
@@ -1014,21 +1021,6 @@ function PurchasePage() {
       <section className="mx-auto w-full max-w-7xl px-6 py-10 md:px-10 md:py-14 xl:px-12">
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <form className="space-y-9" noValidate onSubmit={submitCheckout}>
-            {(apiError || notice) && (
-              <section className="border border-black/10 bg-[#F8F8F6] p-4 md:p-5">
-                {apiError && (
-                  <p className="text-[14px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {apiError}
-                  </p>
-                )}
-                {notice && (
-                  <p className="text-[14px] text-[#0A0A0A]/80" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {notice}
-                  </p>
-                )}
-              </section>
-            )}
-
             <PurchaseStepTimeline
               steps={purchaseSteps}
               currentStepIndex={currentStepIndex}
