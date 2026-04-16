@@ -233,6 +233,8 @@ function PurchasePage() {
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [countryQuery, setCountryQuery] = useState('');
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const [stateQuery, setStateQuery] = useState('');
+  const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
   const [quoteCaptchaToken, setQuoteCaptchaToken] = useState('');
   const [checkoutCaptchaToken, setCheckoutCaptchaToken] = useState('');
   const [quoteCaptchaError, setQuoteCaptchaError] = useState('');
@@ -323,6 +325,10 @@ function PurchasePage() {
   const selectedSubdivisionCatalog = useMemo(() => {
     return addressMetadata?.subdivisions ?? [];
   }, [addressMetadata?.subdivisions]);
+  const selectedSubdivision = useMemo(() => {
+    const normalizedState = form.state.trim().toUpperCase();
+    return selectedSubdivisionCatalog.find((item) => item.code === normalizedState) ?? null;
+  }, [form.state, selectedSubdivisionCatalog]);
   const filteredCountries = useMemo(() => {
     const countries = addressMetadata?.countries ?? [];
     const query = countryQuery.trim().toLowerCase();
@@ -364,6 +370,19 @@ function PurchasePage() {
 
     setCountryQuery(form.country);
   }, [form.country, selectedCountry]);
+
+  useEffect(() => {
+    if (isStateDropdownOpen) {
+      return;
+    }
+
+    if (selectedSubdivision) {
+      setStateQuery(selectedSubdivision.name);
+      return;
+    }
+
+    setStateQuery('');
+  }, [isStateDropdownOpen, selectedSubdivision]);
 
   useEffect(() => {
     setCurrentImageIndex(0);
@@ -583,6 +602,8 @@ function PurchasePage() {
         phone: formatPhoneForInput(prev.phone, newCountryCode),
       }));
       setNotice('');
+      setStateQuery('');
+      setIsStateDropdownOpen(false);
       
       setIsMetadataLoading(true);
       try {
@@ -1676,8 +1697,12 @@ function PurchasePage() {
                   filteredCountries={filteredCountries}
                   countryQuery={countryQuery}
                   isCountryDropdownOpen={isCountryDropdownOpen}
+                  stateQuery={stateQuery}
+                  isStateDropdownOpen={isStateDropdownOpen}
                   setCountryQuery={setCountryQuery}
                   setIsCountryDropdownOpen={setIsCountryDropdownOpen}
+                  setStateQuery={setStateQuery}
+                  setIsStateDropdownOpen={setIsStateDropdownOpen}
                   onUpdateField={updateField}
                   onHandleCountryChange={handleCountryChange}
                   formatRecipientTaxIdForInput={formatRecipientTaxIdForInput}

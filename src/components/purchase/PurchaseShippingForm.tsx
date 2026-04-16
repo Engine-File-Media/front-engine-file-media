@@ -16,8 +16,12 @@ type PurchaseShippingFormProps = {
   filteredCountries: Country[];
   countryQuery: string;
   isCountryDropdownOpen: boolean;
+  stateQuery: string;
+  isStateDropdownOpen: boolean;
   setCountryQuery: Dispatch<SetStateAction<string>>;
   setIsCountryDropdownOpen: Dispatch<SetStateAction<boolean>>;
+  setStateQuery: Dispatch<SetStateAction<string>>;
+  setIsStateDropdownOpen: Dispatch<SetStateAction<boolean>>;
   onUpdateField: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   onHandleCountryChange: (newCountryCode: string) => Promise<void>;
   formatRecipientTaxIdForInput: (countryCode: string, value: string) => string;
@@ -38,13 +42,28 @@ function PurchaseShippingForm({
   filteredCountries,
   countryQuery,
   isCountryDropdownOpen,
+  stateQuery,
+  isStateDropdownOpen,
   setCountryQuery,
   setIsCountryDropdownOpen,
+  setStateQuery,
+  setIsStateDropdownOpen,
   onUpdateField,
   onHandleCountryChange,
   formatRecipientTaxIdForInput,
   getRecipientTaxIdUxHint,
 }: PurchaseShippingFormProps) {
+  const filteredSubdivisions = selectedSubdivisionCatalog.filter((subdivision) => {
+    const query = stateQuery.trim().toLowerCase();
+    if (!query) {
+      return true;
+    }
+
+    const nameMatch = subdivision.name.toLowerCase().includes(query);
+    const codeMatch = subdivision.code.toLowerCase().includes(query);
+    return nameMatch || codeMatch;
+  });
+
   return (
     <section className="border border-black/10 p-5 md:p-7">
       <h2
@@ -209,9 +228,11 @@ function PurchaseShippingForm({
               </div>
             )}
           </div>
-          <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
-            {filteredCountries.length} countries match your search.
-          </span>
+          {countryQuery.trim().length > 0 && (
+            <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {filteredCountries.length} countries match your search.
+            </span>
+          )}
           {errors.country && (
             <span className="text-[12px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
               {errors.country}
@@ -224,20 +245,60 @@ function PurchaseShippingForm({
             {addressMetadata?.fields.stateLabel ?? 'State / Province'}
           </span>
           {selectedSubdivisionCatalog.length > 0 ? (
-            <select
-              id="state"
-              name="state"
-              className={shippingInputClasses}
-              value={form.state}
-              onChange={(event) => onUpdateField('state', event.target.value)}
-            >
-              <option value="">Select</option>
-              {selectedSubdivisionCatalog.map((subdivision) => (
-                <option key={subdivision.code} value={subdivision.code}>
-                  {subdivision.code} - {subdivision.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <input
+                id="state"
+                name="state"
+                type="text"
+                autoComplete="off"
+                className={shippingInputClasses}
+                placeholder="Type to search state/province"
+                value={stateQuery}
+                onFocus={() => {
+                  setIsStateDropdownOpen(true);
+                  setStateQuery('');
+                }}
+                onChange={(event) => {
+                  setStateQuery(event.target.value);
+                  setIsStateDropdownOpen(true);
+                }}
+                onBlur={() => {
+                  window.setTimeout(() => {
+                    setIsStateDropdownOpen(false);
+                    if (form.state) {
+                      const selected = selectedSubdivisionCatalog.find((item) => item.code === form.state.trim().toUpperCase());
+                      setStateQuery(selected?.name ?? '');
+                    }
+                  }, 120);
+                }}
+                disabled={isMetadataLoading || !addressMetadata}
+              />
+              {isStateDropdownOpen && !isMetadataLoading && addressMetadata && (
+                <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto border border-black/20 bg-white shadow-sm">
+                  {filteredSubdivisions.length === 0 && stateQuery.trim().length > 0 ? (
+                    <div className="px-3 py-2 text-[13px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+                      No states found.
+                    </div>
+                  ) : (
+                    filteredSubdivisions.map((subdivision) => (
+                      <button
+                        key={subdivision.code}
+                        type="button"
+                        className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] text-[#0A0A0A] transition-colors hover:bg-black/5"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setStateQuery(subdivision.name);
+                          setIsStateDropdownOpen(false);
+                          onUpdateField('state', subdivision.code);
+                        }}
+                      >
+                        <span>{subdivision.name}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           ) : (
             <input
               id="state"
@@ -252,6 +313,11 @@ function PurchaseShippingForm({
           {requiresStateCode && (
             <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
               Required for {selectedCountryLabel}.
+            </span>
+          )}
+          {selectedSubdivisionCatalog.length > 0 && stateQuery.trim().length > 0 && (
+            <span className="text-[11px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {filteredSubdivisions.length} states match your search.
             </span>
           )}
           {errors.state && (
