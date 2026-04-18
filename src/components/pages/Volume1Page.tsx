@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import bookMockupCovers from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.webp';
-import indiceImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.webp';
-import capituloAudiImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
-import introduccionImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
+import { assetsUrls } from '../../assets';
 import { getBooksPricing } from '../../api/payments';
 import type { ApiError, BookPricing } from '../../api/types';
 import { beginPurchaseEntry } from '../../utils/storage';
@@ -157,23 +154,23 @@ function Volume1Page() {
 
                         <div className="flex h-120 gap-3 lg:justify-self-end lg:h-150 lg:w-full">
                             <img
-                                src={bookMockupCovers}
+                                src={assetsUrls.volumeI.bookMockupCovers}
                                 alt="Book mockup covers"
                                 className="min-w-0 flex-1 border border-black/10 object-cover"
                             />
                             <div className="flex w-24 flex-col gap-3 md:w-32 lg:w-44">
                                 <img
-                                    src={indiceImage}
+                                    src={assetsUrls.volumeI.indiceImage}
                                     alt="Indice"
                                     className="min-h-0 flex-1 w-full border border-black/10 object-cover"
                                 />
                                 <img
-                                    src={capituloAudiImage}
+                                    src={assetsUrls.volumeI.capituloAudiImage}
                                     alt="Capitulo Audi"
                                     className="min-h-0 flex-1 w-full border border-black/10 object-cover"
                                 />
                                 <img
-                                    src={introduccionImage}
+                                    src={assetsUrls.volumeI.introduccionImage}
                                     alt="Introduccion"
                                     className="min-h-0 flex-1 w-full border border-black/10 object-cover"
                                 />

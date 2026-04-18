@@ -1,12 +1,5 @@
-import introHeroImage from '../../assets/FIGMA/FOTOGRAFIAS/About/rectangle71240-v8k8-800h.webp';
-import galleryImageA from '../../assets/FIGMA/FOTOGRAFIAS/About/rectangle71242-2o3l-600w.webp';
-import galleryImageB from '../../assets/FIGMA/FOTOGRAFIAS/About/rectangle81243-2t5r-600h.webp';
-import galleryImageC from '../../assets/FIGMA/FOTOGRAFIAS/About/rectangle91244-06tk-600w.webp';
-import galleryImageD from '../../assets/FIGMA/FOTOGRAFIAS/About/rectangle71246-2hs-400h.webp';
-import galleryImageE from '../../assets/FIGMA/FOTOGRAFIAS/About/rectangle91247-3s6-400h.webp';
-import galleryImageF from '../../assets/FIGMA/FOTOGRAFIAS/About/rectangle81248-v1bl-600w.webp';
-import wideImage from '../../assets/FIGMA/FOTOGRAFIAS/About/rectangle71263-sl9i-800h.webp';
 import { NavLink } from 'react-router-dom';
+import { assetsUrls } from '../../assets';
 
 const introParagraphs = [
     'Engine File Media is an independent editorial project dedicated to documenting motorsport history through its technical, regulatory, and strategic foundations.',
@@ -49,15 +42,15 @@ const longTermVisionParagraphs = [
 ];
 
 const firstGallery = {
-    large: galleryImageA,
-    top: galleryImageB,
-    bottom: galleryImageC,
+    large: assetsUrls.about.galleryA,
+    top: assetsUrls.about.galleryB,
+    bottom: assetsUrls.about.galleryC,
 };
 
 const secondGallery = {
-    large: galleryImageF,
-    top: galleryImageD,
-    bottom: galleryImageE,
+    large: assetsUrls.about.galleryF,
+    top: assetsUrls.about.galleryD,
+    bottom: assetsUrls.about.galleryE,
 };
 
 type TextSectionProps = {
@@ -220,7 +213,7 @@ function AboutPage() {
                 <div className="mx-auto w-full max-w-97.75 px-0 py-6 md:max-w-250.75 md:px-10 md:py-20 lg:py-24 2xl:max-w-303.25 2xl:py-28">
                     <div className="overflow-hidden bg-[#F5F1EB]">
                         <img
-                            src={introHeroImage}
+                            src={assetsUrls.about.introHero}
                             alt="Editorial introduction to Engine File Media"
                             className="mx-auto block h-auto w-auto max-w-full"
                         />
@@ -265,7 +258,7 @@ function AboutPage() {
                 <div className="mx-auto w-full max-w-303.25 px-6 py-16 md:px-10 md:py-20 lg:py-24 2xl:max-w-360 2xl:px-12 2xl:py-28">
                     <div className="overflow-hidden">
                         <img
-                            src={wideImage}
+                            src={assetsUrls.about.wideImage}
                             alt="Long-form editorial archive visual"
                             className="mx-auto block h-auto w-auto max-w-full"
                         />

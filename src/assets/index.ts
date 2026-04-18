@@ -2,9 +2,9 @@ const ASSET_BASE_URL = import.meta.env.VITE_ASSET_BASE_URL;
 
 const assetUrl = (path: string) => `${ASSET_BASE_URL}/${path}`;
 
-export const assets = {
+export const assetsUrls = {
   home: {
-    bgVideo: assetUrl('videos/Background-EFM.mp4'),
+    bgVideo: assetUrl('videos/Background%20EFM.mp4'),
     portada: assetUrl('fotografias/home/Portada.webp'),
   },
   brand: {
@@ -24,7 +24,7 @@ export const assets = {
   volumeI: {
     bookMockupCovers: assetUrl('fotografias/volume-i/BOOK-MOCKUP-COVERS.webp'),
     indiceImage: assetUrl('fotografias/volume-i/INDICE.webp'),
-    capituloAudiImage: assetUrl('fotografias/volume-i/CAPITULO-AUDI.webp'),
+    capituloAudiImage: assetUrl('fotografias/volume-i/CAPITULO%20AUDI.webp'),
     introduccionImage: assetUrl('fotografias/volume-i/introduccion.webp'),
     toyotaCelicaImage: assetUrl('fotografias/volume-i/TOYOTA-CELICA-ST205.webp'),
   },

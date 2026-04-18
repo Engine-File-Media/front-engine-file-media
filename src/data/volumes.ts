@@ -1,8 +1,4 @@
-import bookMockupCovers from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/BOOK-MOCKUP-COVERS.webp';
-import indiceImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/INDICE.webp';
-import capituloAudiImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPITULO AUDI.webp';
-import introduccionImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
-import toyotaCelicaImage from '../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/TOYOTA-CELICA-ST205.webp';
+import { assetsUrls } from '../assets';
 
 export type VolumeGalleryImage = {
   src: string;
@@ -28,11 +24,11 @@ const VOLUME_CONFIGS: Record<string, VolumeConfig> = {
     galleryTitle: 'Volume I Gallery',
     gallerySubtitle: 'Preview of selected spreads and cover mockups.',
     galleryImages: [
-      { src: bookMockupCovers, alt: 'Volume I - Book mockup covers' },
-      { src: indiceImage, alt: 'Volume I - Indice spread' },
-      { src: capituloAudiImage, alt: 'Volume I - Audi chapter spread' },
-      { src: introduccionImage, alt: 'Volume I - Introduction spread' },
-      { src: toyotaCelicaImage, alt: 'Volume I - Toyota Celica ST205 spread' },
+      { src: assetsUrls.volumeI.bookMockupCovers, alt: 'Volume I - Book mockup covers' },
+      { src: assetsUrls.volumeI.indiceImage, alt: 'Volume I - Indice spread' },
+      { src: assetsUrls.volumeI.capituloAudiImage, alt: 'Volume I - Audi chapter spread' },
+      { src: assetsUrls.volumeI.introduccionImage, alt: 'Volume I - Introduction spread' },
+      { src: assetsUrls.volumeI.toyotaCelicaImage, alt: 'Volume I - Toyota Celica ST205 spread' },
     ],
   },
 };

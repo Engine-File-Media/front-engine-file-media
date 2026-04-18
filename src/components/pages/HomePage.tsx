@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import portada from '../../assets/FIGMA/FOTOGRAFIAS/Home/Portada.webp';
-import bgVideo from '../../assets/FIGMA/Mockups/Background EFM.mp4';
+import { assetsUrls } from '../../assets';
 
 function HomePage() {
     const [email, setEmail] = useState('');
@@ -27,7 +26,7 @@ function HomePage() {
             <section className="relative w-full overflow-hidden flex flex-col items-center px-7.5 py-28 md:py-30 lg:py-36">
                 <video
                     className="absolute inset-0 h-full w-full object-cover"
-                    src={bgVideo}
+                    src={assetsUrls.home.bgVideo}
                     autoPlay
                     loop
                     muted
@@ -73,7 +72,7 @@ function HomePage() {
             <section className="w-full bg-white">
                 <div className="mx-auto flex w-full max-w-97.5 flex-col items-center px-0 pb-23.5 pt-5 md:max-w-337.5 md:flex-row md:items-center md:gap-16 md:px-20 md:py-24">
                     <img
-                        src={portada}
+                        src={assetsUrls.home.portada}
                         alt="Volume I Cover"
                         className="mx-auto block w-auto max-w-full h-auto md:max-w-[45%] md:shrink"
                     />
