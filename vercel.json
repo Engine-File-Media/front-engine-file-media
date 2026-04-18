@@ -1,8 +1,4 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "env": {
-    "VITE_ASSET_BASE_URL": "@VITE_ASSET_BASE_URL",
-    "VITE_TURNSTILE_SITE_KEY": "@VITE_TURNSTILE_SITE_KEY"
-  }
+  "outputDirectory": "dist"
 }
