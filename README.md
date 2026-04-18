@@ -151,6 +151,30 @@ npm run lint
 
 ---
 
+## CAPTCHA (Cloudflare Turnstile)
+
+Frontend captcha is configured through:
+
+```bash
+VITE_TURNSTILE_SITE_KEY=
+```
+
+Setup:
+1. Copy `.env.example` to `.env`.
+2. Set `VITE_TURNSTILE_SITE_KEY` with your Cloudflare Turnstile site key.
+3. Restart the Vite dev server after updating env values.
+
+Behavior by backend mode:
+1. If backend `CAPTCHA_ENABLED=true`, quote and checkout requests include `X-Captcha-Token` and require solving captcha.
+2. If backend `CAPTCHA_ENABLED=false`, frontend can run without site key and requests continue without captcha header.
+
+Error handling in checkout flow:
+1. `401` + `timeout-or-duplicate`: widget is reset and user must solve a new challenge.
+2. `401` missing/invalid token: blocking message shown until captcha is solved.
+3. `502` verification outage: temporary message shown and user can retry manually.
+
+---
+
 ## Purchase Flow Summary
 
 1. El usuario entra a `Volume1Page`.

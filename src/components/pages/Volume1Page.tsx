@@ -6,6 +6,7 @@ import capituloAudiImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/CAPI
 import introduccionImage from '../../assets/FIGMA/FOTOGRAFIAS/VOL. I PAGINA/introduccion.webp';
 import { getBooksPricing } from '../../api/payments';
 import type { ApiError, BookPricing } from '../../api/types';
+import { beginPurchaseEntry } from '../../utils/storage';
 
 const defaultBookId = 'volume-i';
 
@@ -45,7 +46,7 @@ const distinguishingPoints = [
 const physicalSpecs = [
     { label: 'Binding', value: 'Hardcover' },
     { label: 'Page Count', value: '171 pages' },
-    { label: 'Paper Stock', value: '80gsm uncoated' },
+    { label: 'Paper Stock', value: '120gsm uncoated' },
     { label: 'Layout', value: 'Three columns' },
     { label: 'Dimensions', value: '215.9 x 279.4 mm' },
 ];
@@ -308,6 +309,7 @@ function Volume1Page() {
 
                     <NavLink
                         to="/purchase/volume-i"
+                        onClick={() => beginPurchaseEntry(defaultBookId)}
                         className="mt-8 inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-8 py-3 text-base font-semibold text-white no-underline"
                         style={{ fontFamily: 'Inter, sans-serif' }}
                     >

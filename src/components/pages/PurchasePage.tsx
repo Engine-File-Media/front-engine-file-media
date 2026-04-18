@@ -1,13 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { createCheckout, createQuote, getAddressMetadata, getBooksPricing, getShippingOptions } from '../../api/payments';
-import type { AddressMetadataResponse, ApiError, BookPricing, QuoteResponse, ShippingOption } from '../../api/types';
+import { getAddressMetadata, getBooksPricing } from '../../api/payments';
+import type { AddressMetadataResponse, ApiError, BookPricing, QuoteResponse } from '../../api/types';
 import PurchaseGallery from '../purchase/PurchaseGallery';
-import PurchasePaymentAction from '../purchase/PurchasePaymentAction';
-import PurchaseShippingForm from '../purchase/PurchaseShippingForm';
+import PurchaseAddressStep from '../purchase/steps/PurchaseAddressStep';
+import PurchaseCheckoutStep from '../purchase/steps/PurchaseCheckoutStep';
+import PurchaseContactStep from '../purchase/steps/PurchaseContactStep';
+import PurchaseOrderStep from '../purchase/steps/PurchaseOrderStep';
+import PurchaseShippingStep from '../purchase/steps/PurchaseShippingStep';
+import PurchaseStepSummaryCard from '../purchase/PurchaseStepSummaryCard';
+import PurchaseStepTimeline from '../purchase/PurchaseStepTimeline';
 import PurchaseSummary from '../purchase/PurchaseSummary';
+import TurnstileWidget from '../security/TurnstileWidget';
+import type { TurnstileWidgetRef } from '../security/TurnstileWidget';
 import type { FieldErrors, FormState } from '../purchase/purchaseTypes';
+import { usePurchaseDraft } from '../../hooks/purchase/usePurchaseDraft';
+import { usePurchaseCheckout } from '../../hooks/purchase/usePurchaseCheckout';
+import { usePurchaseSession } from '../../hooks/purchase/usePurchaseSession';
+import { usePurchaseQuote } from '../../hooks/purchase/usePurchaseQuote';
+import { useShippingOptions } from '../../hooks/purchase/useShippingOptions';
 import { resolveVolumeConfig } from '../../data/volumes';
 import {
   composePhoneWithDialCode,
@@ -18,7 +29,7 @@ import {
   isLuluPhonePatternValid,
   normalizePhoneToE164,
 } from '../../utils/phone';
-import { savePurchaseState } from '../../utils/storage';
+import { normalizeRecipientTaxIdForPayload, readCaptchaCode } from '../../utils/purchaseFlow';
 
 const shippingInputClasses =
   'h-11 w-full border border-black/20 bg-white px-3 text-[14px] text-[#0A0A0A] outline-none transition-colors focus:border-black/45';
@@ -26,29 +37,48 @@ const shippingInputClasses =
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxQuantity = 50;
 const stateCodePattern = /^[A-Z0-9-]{1,10}$/;
+const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? '';
+type StepKey = 'order' | 'address' | 'contact' | 'shipping' | 'checkout';
+
+const purchaseSteps: Array<{ key: StepKey; label: string }> = [
+  { key: 'order', label: 'Order' },
+  { key: 'address', label: 'Address' },
+  { key: 'contact', label: 'Contact' },
+  { key: 'shipping', label: 'Shipping Method' },
+  { key: 'checkout', label: 'Checkout' },
+];
+
+const addressDependentFields: Array<keyof FormState> = [
+  'address1',
+  'address2',
+  'recipientTaxId',
+  'city',
+  'state',
+  'postalCode',
+  'country',
+  'isBusiness',
+  'isPostbox',
+];
+
+const contactDependentFields: Array<keyof FormState> = ['email', 'firstName', 'lastName', 'phone'];
+
+const clearErrorFields = (
+  previousErrors: FieldErrors,
+  fieldsToClear: Array<keyof FieldErrors>,
+  nextErrors: FieldErrors,
+) => {
+  const clearedErrors = { ...previousErrors };
+  fieldsToClear.forEach((field) => {
+    delete clearedErrors[field];
+  });
+
+  return {
+    ...clearedErrors,
+    ...nextErrors,
+  };
+};
 
 const clampQuantity = (value: number) => Math.min(maxQuantity, Math.max(1, value));
-
-const normalizeRecipientTaxIdForPayload = (countryCode: string, value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  if (countryCode === 'CL') {
-    return trimmed.toUpperCase().replace(/[^0-9K]/g, '');
-  }
-
-  if (countryCode === 'BR') {
-    return trimmed.replace(/\D/g, '');
-  }
-
-  if (countryCode === 'MX') {
-    return trimmed.toUpperCase().replace(/\s+/g, '');
-  }
-
-  return trimmed;
-};
 
 const formatRecipientTaxIdForInput = (countryCode: string, value: string) => {
   if (countryCode === 'CL') {
@@ -122,15 +152,74 @@ function PurchasePage() {
   const [isMetadataLoading, setIsMetadataLoading] = useState(false);
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [lastQuotedFingerprint, setLastQuotedFingerprint] = useState<string | null>(null);
-  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
-  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
-  const [isShippingOptionsLoading, setIsShippingOptionsLoading] = useState(false);
-  const [notice, setNotice] = useState('');
-  const [apiError, setApiError] = useState('');
-  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [countryQuery, setCountryQuery] = useState('');
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
-  const previousShippingOptionRef = useRef(form.shippingOption);
+  const [stateQuery, setStateQuery] = useState('');
+  const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
+  const [quoteCaptchaToken, setQuoteCaptchaToken] = useState('');
+  const [checkoutCaptchaToken, setCheckoutCaptchaToken] = useState('');
+  const [quoteCaptchaError, setQuoteCaptchaError] = useState('');
+  const [checkoutCaptchaError, setCheckoutCaptchaError] = useState('');
+  const [isCaptchaEnforced, setIsCaptchaEnforced] = useState(Boolean(turnstileSiteKey));
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [completedUntilIndex, setCompletedUntilIndex] = useState(-1);
+  const quoteTurnstileRef = useRef<TurnstileWidgetRef | null>(null);
+  const checkoutTurnstileRef = useRef<TurnstileWidgetRef | null>(null);
+  const currentStepKey = purchaseSteps[currentStepIndex]?.key ?? 'order';
+  const isCaptchaRequired = isCaptchaEnforced;
+
+  const reportInternalIssue = useCallback((message: string) => {
+    if (message) {
+      console.error('[PurchasePage]', message);
+    }
+  }, []);
+
+  const reportInfo = useCallback((message: string) => {
+    if (message) {
+      console.log('[PurchasePage]', message);
+    }
+  }, []);
+
+  const {
+    purchaseSessionId,
+    isSessionBootstrapping,
+    bootstrapPurchaseSession,
+    clearPurchaseSessionContext,
+  } = usePurchaseSession(resolvedVolume.bookId, reportInternalIssue);
+
+  const invalidateFromStep = useCallback((stepIndex: number) => {
+    setCompletedUntilIndex((prev) => Math.min(prev, stepIndex - 1));
+    setCurrentStepIndex((prev) => (prev > stepIndex ? stepIndex : prev));
+
+    if (stepIndex <= 3) {
+      setQuote(null);
+      setLastQuotedFingerprint(null);
+
+      // Only clear secure session if a quote already existed.
+      // This avoids session churn while user is still choosing shipping options.
+      const hadQuote = Boolean(quote) || Boolean(lastQuotedFingerprint);
+      if (hadQuote) {
+        clearPurchaseSessionContext();
+      }
+    }
+  }, [clearPurchaseSessionContext, lastQuotedFingerprint, quote]);
+
+  const moveToNextStep = useCallback((stepIndex: number) => {
+    setCompletedUntilIndex((prev) => Math.max(prev, stepIndex));
+    setCurrentStepIndex(Math.min(stepIndex + 1, purchaseSteps.length - 1));
+  }, []);
+
+  const goToStep = useCallback(
+    (stepIndex: number) => {
+      if (stepIndex === currentStepIndex || stepIndex > completedUntilIndex) {
+        return;
+      }
+
+      invalidateFromStep(stepIndex);
+      setCurrentStepIndex(stepIndex);
+    },
+    [completedUntilIndex, currentStepIndex, invalidateFromStep],
+  );
   const selectedCountry = useMemo(() => {
     return addressMetadata?.countries.find((country) => country.code === form.country) ?? null;
   }, [addressMetadata?.countries, form.country]);
@@ -140,6 +229,10 @@ function PurchasePage() {
   const selectedSubdivisionCatalog = useMemo(() => {
     return addressMetadata?.subdivisions ?? [];
   }, [addressMetadata?.subdivisions]);
+  const selectedSubdivision = useMemo(() => {
+    const normalizedState = form.state.trim().toUpperCase();
+    return selectedSubdivisionCatalog.find((item) => item.code === normalizedState) ?? null;
+  }, [form.state, selectedSubdivisionCatalog]);
   const filteredCountries = useMemo(() => {
     const countries = addressMetadata?.countries ?? [];
     const query = countryQuery.trim().toLowerCase();
@@ -173,6 +266,36 @@ function PurchasePage() {
     return normalizeRecipientTaxIdForPayload(form.country, form.recipientTaxId);
   }, [form.country, form.recipientTaxId]);
 
+  const {
+    shippingOptions,
+    setShippingOptions,
+    isShippingOptionsLoading,
+  } = useShippingOptions({
+    form,
+    selectedBook,
+    normalizedRecipientTaxId,
+    purchaseSessionId,
+    shippingOption: form.shippingOption,
+    setForm,
+    onError: reportInternalIssue,
+  });
+
+  usePurchaseDraft({
+    volumeId: resolvedVolume.id,
+    form,
+    currentStepIndex,
+    completedUntilIndex,
+    quote,
+    lastQuotedFingerprint,
+    shippingOptions,
+    setForm,
+    setCurrentStepIndex,
+    setCompletedUntilIndex,
+    setQuote,
+    setLastQuotedFingerprint,
+    setShippingOptions,
+  });
+
   useEffect(() => {
     if (selectedCountry) {
       setCountryQuery(`${selectedCountry.name} (${selectedCountry.code})`);
@@ -181,6 +304,19 @@ function PurchasePage() {
 
     setCountryQuery(form.country);
   }, [form.country, selectedCountry]);
+
+  useEffect(() => {
+    if (isStateDropdownOpen) {
+      return;
+    }
+
+    if (selectedSubdivision) {
+      setStateQuery(selectedSubdivision.name);
+      return;
+    }
+
+    setStateQuery('');
+  }, [isStateDropdownOpen, selectedSubdivision]);
 
   useEffect(() => {
     setCurrentImageIndex(0);
@@ -215,14 +351,14 @@ function PurchasePage() {
           message: parsedError.message,
           status: parsedError.status,
         });
-        setApiError(parsedError.message || 'Unable to load checkout data.');
+        reportInternalIssue(parsedError.message || 'Unable to load checkout data.');
       } finally {
         setIsPricingLoading(false);
       }
     };
 
     void loadInitialData();
-  }, [resolvedVolume.bookId]);
+  }, [reportInternalIssue, resolvedVolume.bookId]);
 
   const quoteFingerprint = useMemo(
     () =>
@@ -278,7 +414,8 @@ function PurchasePage() {
         recipientTaxId: '',
         phone: formatPhoneForInput(prev.phone, newCountryCode),
       }));
-      setNotice('');
+      setStateQuery('');
+      setIsStateDropdownOpen(false);
       
       setIsMetadataLoading(true);
       try {
@@ -295,12 +432,12 @@ function PurchasePage() {
           country: newCountryCode,
           message: parsedError.message,
         });
-        setApiError(parsedError.message || `Unable to load metadata for ${newCountryCode}.`);
+        reportInternalIssue(parsedError.message || `Unable to load metadata for ${newCountryCode}.`);
       } finally {
         setIsMetadataLoading(false);
       }
     },
-    [],
+    [reportInternalIssue],
   );
 
   const increaseQuantity = () => {
@@ -319,9 +456,40 @@ function PurchasePage() {
     setCurrentImageIndex((prev) => (prev - 1 + resolvedVolume.galleryImages.length) % resolvedVolume.galleryImages.length);
   };
 
-  const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const updateField = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
+    const isOrderField = key === 'quantity';
+    const isAddressField = addressDependentFields.includes(key);
+    const isContactField = contactDependentFields.includes(key);
+    const isShippingField = key === 'shippingOption';
+
+    if (isOrderField) {
+      invalidateFromStep(0);
+    } else if (isAddressField) {
+      invalidateFromStep(1);
+      setShippingOptions([]);
+    } else if (isContactField) {
+      invalidateFromStep(2);
+    } else if (isShippingField) {
+      invalidateFromStep(3);
+    }
+
+    setForm((prev) => {
+      const nextForm = { ...prev, [key]: value };
+      if ((isOrderField || isAddressField) && prev.shippingOption) {
+        nextForm.shippingOption = '';
+      }
+      return nextForm;
+    });
+
+    setErrors((prev) => {
+      const nextErrors = { ...prev };
+      delete nextErrors[key];
+      if (isOrderField || isAddressField) {
+        delete nextErrors.shippingOption;
+      }
+      return nextErrors;
+    });
+  }, [invalidateFromStep, setShippingOptions]);
 
   const validateForm = useCallback(() => {
     const nextErrors: FieldErrors = {};
@@ -408,255 +576,422 @@ function PurchasePage() {
     selectedSubdivisionCatalog,
   ]);
 
-  const canRequestShippingOptions =
-    Boolean(selectedBook?.id) &&
-    Number.isFinite(form.quantity) &&
-    form.quantity > 0 &&
-    Boolean(form.address1.trim()) &&
-    Boolean(form.city.trim()) &&
-    Boolean(form.postalCode.trim()) &&
-    Boolean(form.country.trim()) &&
-    (!requiresRecipientTaxId || Boolean(normalizedRecipientTaxId)) &&
-    (!requiresStateCode || Boolean(form.state.trim()));
-
-  const canAutoQuoteOnShippingSelection =
-    canRequestShippingOptions &&
-    Boolean(form.shippingOption) &&
-    Boolean(form.email.trim()) &&
-    emailPattern.test(form.email.trim()) &&
-    Boolean(form.firstName.trim()) &&
-    Boolean(form.lastName.trim()) &&
-    Boolean(normalizedPhoneE164);
-
-  const requestShippingOptions = useCallback(async () => {
-    if (!canRequestShippingOptions || !selectedBook) {
-      return;
+  const validateOrderStep = useCallback(() => {
+    const nextErrors: FieldErrors = {};
+    if (!Number.isFinite(form.quantity) || form.quantity < 1 || form.quantity > maxQuantity) {
+      nextErrors.quantity = `Quantity must be between 1 and ${maxQuantity}.`;
     }
 
-    setApiError('');
-    setIsShippingOptionsLoading(true);
+    setErrors((prev) => clearErrorFields(prev, ['quantity'], nextErrors));
+    return Object.keys(nextErrors).length === 0;
+  }, [form.quantity]);
 
-    try {
-      const trimmedState = form.state.trim();
-      const trimmedAddress2 = form.address2.trim();
-      const response = await getShippingOptions({
-        bookId: selectedBook.id,
-        address: {
-          line1: form.address1.trim(),
-          ...(trimmedAddress2 ? { line2: trimmedAddress2 } : {}),
-          city: form.city.trim(),
-          postalCode: form.postalCode.trim(),
-          country: form.country,
-          isBusiness: form.isBusiness,
-          isPostbox: form.isPostbox,
-          ...(trimmedState ? { state: trimmedState.toUpperCase() } : {}),
-          ...(normalizedRecipientTaxId ? { recipientTaxId: normalizedRecipientTaxId } : {}),
-        },
-        quantity: form.quantity,
-        currency: selectedBook.currency,
-      });
+  const validateAddressStep = useCallback(() => {
+    const nextErrors: FieldErrors = {};
 
-      const fetchedOptions = response.shippingOptions;
-      setShippingOptions(fetchedOptions);
+    if (!form.address1.trim()) {
+      nextErrors.address1 = 'Address is required.';
+    }
 
-      if (fetchedOptions.length > 0 && !fetchedOptions.some((option) => option.level === form.shippingOption)) {
-        updateField('shippingOption', fetchedOptions[0].level);
+    if (!form.city.trim()) {
+      nextErrors.city = 'City is required.';
+    }
+
+    if (!form.postalCode.trim()) {
+      nextErrors.postalCode = 'Postal code is required.';
+    }
+
+    if (!form.country.trim()) {
+      nextErrors.country = 'Country is required.';
+    }
+
+    if (requiresRecipientTaxId && !normalizedRecipientTaxId) {
+      nextErrors.recipientTaxId = `${addressMetadata?.fields.recipientTaxIdLabel ?? 'Recipient Tax ID'} is required for this destination.`;
+    }
+
+    if (requiresStateCode && !form.state.trim()) {
+      nextErrors.state = 'State/Province code is required for this destination.';
+    }
+
+    const normalizedState = form.state.trim().toUpperCase();
+    if (normalizedState && selectedSubdivisionCatalog) {
+      const isKnownSubdivision = selectedSubdivisionCatalog.some((item) => item.code === normalizedState);
+      if (!isKnownSubdivision) {
+        nextErrors.state = `Use a valid ISO-3166-2 code for ${selectedCountryLabel}.`;
       }
-    } catch (error) {
-      const parsedError = error as ApiError;
-      console.error('[PurchasePage] Shipping options request failed:', {
-        message: parsedError.message,
-        status: parsedError.status,
-        details: parsedError.details,
-        requestData: { country: form.country, quantity: form.quantity },
-      });
-      setShippingOptions([]);
-      updateField('shippingOption', '');
-      setApiError(parsedError.message || 'Unable to load shipping options.');
-    } finally {
-      setIsShippingOptionsLoading(false);
+    } else if (normalizedState && !stateCodePattern.test(normalizedState)) {
+      nextErrors.state = 'Use a valid state/province code (letters, numbers, hyphen).';
     }
+
+    setErrors((prev) =>
+      clearErrorFields(prev, ['address1', 'recipientTaxId', 'city', 'state', 'postalCode', 'country'], nextErrors),
+    );
+
+    return Object.keys(nextErrors).length === 0;
   }, [
-    canRequestShippingOptions,
+    addressMetadata?.fields.recipientTaxIdLabel,
     form.address1,
-    form.address2,
     form.city,
     form.country,
-    form.isBusiness,
-    form.isPostbox,
     form.postalCode,
-    form.quantity,
-    form.shippingOption,
     form.state,
     normalizedRecipientTaxId,
-    selectedBook,
+    requiresRecipientTaxId,
+    requiresStateCode,
+    selectedCountryLabel,
+    selectedSubdivisionCatalog,
   ]);
 
-  useEffect(() => {
-    if (!canRequestShippingOptions) {
-      setShippingOptions([]);
-      if (form.shippingOption) {
-        updateField('shippingOption', '');
-      }
-      return;
+  const validateContactStep = useCallback(() => {
+    const nextErrors: FieldErrors = {};
+
+    if (!form.email.trim() || !emailPattern.test(form.email.trim())) {
+      nextErrors.email = 'Please enter a valid email address.';
     }
 
-    const timer = window.setTimeout(() => {
-      void requestShippingOptions();
-    }, 350);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [
-    canRequestShippingOptions,
-    form.shippingOption,
-    requestShippingOptions,
-  ]);
-
-  const requestQuote = useCallback(async () => {
-    if (!validateForm()) {
-      return null;
+    if (!form.firstName.trim()) {
+      nextErrors.firstName = 'First name is required.';
     }
+
+    if (!form.lastName.trim()) {
+      nextErrors.lastName = 'Last name is required.';
+    }
+
+    if (!form.phone.trim()) {
+      nextErrors.phone = 'Phone is required.';
+    } else if (!isLuluPhonePatternValid(form.phone, form.country)) {
+      nextErrors.phone = 'Phone must use 8-20 valid characters (digits, spaces, +, -, /, parentheses).';
+    } else if (!normalizedPhoneE164) {
+      nextErrors.phone = `Enter a valid phone number for ${selectedCountryLabel}.`;
+    }
+
+    setErrors((prev) => clearErrorFields(prev, ['email', 'firstName', 'lastName', 'phone'], nextErrors));
+
+    return Object.keys(nextErrors).length === 0;
+  }, [form.country, form.email, form.firstName, form.lastName, form.phone, normalizedPhoneE164, selectedCountryLabel]);
+
+  const validateShippingStep = useCallback(() => {
+    const nextErrors: FieldErrors = {};
 
     if (!form.shippingOption) {
-      setErrors((prev) => ({ ...prev, shippingOption: 'Select a shipping option.' }));
-      return null;
+      nextErrors.shippingOption = 'Select a shipping option.';
     }
 
-    setApiError('');
-    setNotice('');
-    setIsQuoteLoading(true);
+    setErrors((prev) => clearErrorFields(prev, ['shippingOption'], nextErrors));
+    return Object.keys(nextErrors).length === 0;
+  }, [form.shippingOption]);
 
-    try {
-      const trimmedState = form.state.trim();
-      const trimmedAddress2 = form.address2.trim();
-      const quoteResponse = await createQuote({
-        bookId: selectedBook?.id ?? resolvedVolume.bookId,
-        address: {
-          line1: form.address1.trim(),
-          ...(trimmedAddress2 ? { line2: trimmedAddress2 } : {}),
-          city: form.city.trim(),
-          postalCode: form.postalCode.trim(),
-          country: form.country,
-          isBusiness: form.isBusiness,
-          isPostbox: form.isPostbox,
-          ...(trimmedState ? { state: trimmedState.toUpperCase() } : {}),
-          ...(normalizedRecipientTaxId ? { recipientTaxId: normalizedRecipientTaxId } : {}),
-        },
-        phone: normalizedPhoneE164,
-        name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
-        email: form.email.trim(),
-        quantity: form.quantity,
-        shippingOption: form.shippingOption,
-        currency: displayCurrency,
-      });
+  const handleEditStep = useCallback(
+    (stepIndex: number) => {
+      invalidateFromStep(stepIndex);
+      setCurrentStepIndex(stepIndex);
+    },
+    [invalidateFromStep],
+  );
 
-      console.log('[PurchasePage] Quote created successfully:', {
-        quoteId: quoteResponse.quoteId,
-        total: quoteResponse.costs.total,
-      });
-      setQuote(quoteResponse);
-      setLastQuotedFingerprint(quoteFingerprint);
-      setNotice('Quote generated successfully. You can continue to PayPal.');
-      return quoteResponse;
-    } catch (error) {
-      const parsedError = error as ApiError;
-      console.error('[PurchasePage] Quote creation failed:', {
-        message: parsedError.message,
-        status: parsedError.status,
-        details: parsedError.details,
-      });
-      setApiError(parsedError.message || 'Unable to calculate quote.');
-      return null;
-    } finally {
-      setIsQuoteLoading(false);
+  const selectedShippingOptionLabel = useMemo(() => {
+    const selected = shippingOptions.find((option) => option.level === form.shippingOption);
+    if (!selected) {
+      return form.shippingOption || 'Not selected';
     }
-  }, [
-    displayCurrency,
+    return `${selected.level} (${selected.currency} ${selected.costExclTax})`;
+  }, [form.shippingOption, shippingOptions]);
+
+  const orderSummaryLines = useMemo(
+    () => [`Quantity: ${form.quantity}`, `Estimated base total: ${displayCurrency} ${(unitBasePrice * form.quantity).toFixed(2)}`],
+    [displayCurrency, form.quantity, unitBasePrice],
+  );
+
+  const addressSummaryLines = useMemo(() => {
+    const lines = [
+      `Address: ${form.address1}${form.address2.trim() ? `, ${form.address2.trim()}` : ''}`,
+      `City / State: ${form.city}${form.state.trim() ? `, ${form.state.trim().toUpperCase()}` : ''}`,
+      `Postal code / Country: ${form.postalCode} / ${form.country}`,
+    ];
+
+    if (form.isBusiness) {
+      lines.push('Business address: Yes');
+    }
+    if (form.isPostbox) {
+      lines.push('PO Box address: Yes');
+    }
+    if (normalizedRecipientTaxId) {
+      lines.push(`Tax ID: ${normalizedRecipientTaxId}`);
+    }
+
+    return lines;
+  }, [form.address1, form.address2, form.city, form.country, form.isBusiness, form.isPostbox, form.postalCode, form.state, normalizedRecipientTaxId]);
+
+  const contactSummaryLines = useMemo(
+    () => [
+      `Name: ${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+      `Email: ${form.email.trim()}`,
+      `Phone: ${normalizedPhoneE164 || luluPhoneCandidate || form.phone.trim()}`,
+    ],
+    [form.email, form.firstName, form.lastName, form.phone, luluPhoneCandidate, normalizedPhoneE164],
+  );
+
+  const shippingSummaryLines = useMemo(
+    () => [`Method: ${selectedShippingOptionLabel}`, `Quote total: ${displayCurrency} ${summaryTotal.toFixed(2)}`],
+    [displayCurrency, selectedShippingOptionLabel, summaryTotal],
+  );
+
+  const onQuoteCaptchaTokenChange = useCallback((token: string) => {
+    setQuoteCaptchaToken(token);
+    if (token) {
+      setQuoteCaptchaError('');
+    }
+  }, []);
+
+  const onCheckoutCaptchaTokenChange = useCallback((token: string) => {
+    setCheckoutCaptchaToken(token);
+    if (token) {
+      setCheckoutCaptchaError('');
+    }
+  }, []);
+
+  const handleQuoteCaptchaFailure = useCallback(
+    (parsedError: ApiError) => {
+      const code = readCaptchaCode(parsedError.details);
+      setQuoteCaptchaToken('');
+      quoteTurnstileRef.current?.reset();
+
+      if (parsedError.status === 401 && code === 'timeout-or-duplicate') {
+        setIsCaptchaEnforced(true);
+        const message = 'Captcha expired or already used. Please complete it again.';
+        setQuoteCaptchaError(message);
+        reportInternalIssue(message);
+        return;
+      }
+
+      if (parsedError.status === 401) {
+        setIsCaptchaEnforced(true);
+        const message =
+          'Captcha verification failed. Complete the challenge and try again.';
+        setQuoteCaptchaError(message);
+        reportInternalIssue(message);
+        return;
+      }
+
+      if (parsedError.status === 502) {
+        const message =
+          'Captcha verification service is temporarily unavailable. Please try again.';
+        setQuoteCaptchaError(message);
+        reportInternalIssue(message);
+      }
+    },
+    [reportInternalIssue],
+  );
+
+  const handleCheckoutCaptchaFailure = useCallback(
+    (parsedError: ApiError) => {
+      const code = readCaptchaCode(parsedError.details);
+      setCheckoutCaptchaToken('');
+      checkoutTurnstileRef.current?.reset();
+
+      if (parsedError.status === 401 && code === 'timeout-or-duplicate') {
+        setIsCaptchaEnforced(true);
+        const message = 'Captcha expired or already used. Please complete it again.';
+        setCheckoutCaptchaError(message);
+        reportInternalIssue(message);
+        return;
+      }
+
+      if (parsedError.status === 401) {
+        setIsCaptchaEnforced(true);
+        const message =
+          'Captcha verification failed. Complete the challenge and try again.';
+        setCheckoutCaptchaError(message);
+        reportInternalIssue(message);
+        return;
+      }
+
+      if (parsedError.status === 502) {
+        const message =
+          'Captcha verification service is temporarily unavailable. Please try again.';
+        setCheckoutCaptchaError(message);
+        reportInternalIssue(message);
+      }
+    },
+    [reportInternalIssue],
+  );
+
+  const resetQuoteCaptcha = useCallback(() => {
+    setQuoteCaptchaToken('');
+    quoteTurnstileRef.current?.reset();
+  }, []);
+
+  const resetCheckoutCaptcha = useCallback(() => {
+    setCheckoutCaptchaToken('');
+    checkoutTurnstileRef.current?.reset();
+  }, []);
+
+  const {
+    requestQuote,
+    isQuoteLoading,
+  } = usePurchaseQuote({
     form,
+    selectedBookId: selectedBook?.id ?? null,
+    fallbackBookId: resolvedVolume.bookId,
+    displayCurrency: quote?.currency ?? selectedBook?.currency ?? 'USD',
+    quote,
+    lastQuotedFingerprint,
+    quoteFingerprint,
+    purchaseSessionId,
+    isSessionBootstrapping,
+    bootstrapPurchaseSession,
     normalizedPhoneE164,
     normalizedRecipientTaxId,
-    quoteFingerprint,
-    resolvedVolume.bookId,
-    selectedBook?.id,
+    isQuoteCaptchaRequired: isCaptchaRequired && Boolean(form.shippingOption),
+    quoteCaptchaToken,
     validateForm,
-  ]);
+    setErrors,
+    setQuote,
+    setLastQuotedFingerprint,
+    setQuoteCaptchaError,
+    clearPurchaseSessionContext,
+    onInternalError: reportInternalIssue,
+    onInfo: reportInfo,
+    onQuoteCaptchaFailure: handleQuoteCaptchaFailure,
+    resetQuoteCaptcha,
+  });
+
+  const {
+    submitCheckout,
+    isCheckoutLoading,
+  } = usePurchaseCheckout({
+    quote,
+    quoteFingerprint,
+    lastQuotedFingerprint,
+    purchaseSessionId,
+    isSessionBootstrapping,
+    bootstrapPurchaseSession,
+    isCaptchaRequired,
+    checkoutCaptchaToken,
+    normalizedPhoneE164,
+    contactEmail: form.email.trim(),
+    clearPurchaseSessionContext,
+    setCurrentStepIndex,
+    setCompletedUntilIndex,
+    setCheckoutCaptchaError,
+    onInternalError: reportInternalIssue,
+    onCheckoutCaptchaFailure: handleCheckoutCaptchaFailure,
+    resetCheckoutCaptcha,
+  });
+
+  const isQuoteCaptchaRequired = isCaptchaRequired && Boolean(form.shippingOption);
 
   useEffect(() => {
-    if (previousShippingOptionRef.current === form.shippingOption) {
+    setQuoteCaptchaError('');
+    resetQuoteCaptcha();
+  }, [form.shippingOption, resetQuoteCaptcha]);
+
+  const quoteCaptchaNode = isQuoteCaptchaRequired ? (
+    <TurnstileWidget
+      ref={quoteTurnstileRef}
+      siteKey={turnstileSiteKey}
+      action="quote_submit"
+      onTokenChange={onQuoteCaptchaTokenChange}
+      onExpired={() => {
+        setQuoteCaptchaToken('');
+        setQuoteCaptchaError('Captcha expired. Please complete it again.');
+      }}
+      onError={(message) => {
+        setQuoteCaptchaToken('');
+        setQuoteCaptchaError(message);
+      }}
+    />
+  ) : null;
+
+  const checkoutCaptchaNode = isCaptchaRequired ? (
+    <TurnstileWidget
+      ref={checkoutTurnstileRef}
+      siteKey={turnstileSiteKey}
+      action="checkout_submit"
+      onTokenChange={onCheckoutCaptchaTokenChange}
+      onExpired={() => {
+        setCheckoutCaptchaToken('');
+        setCheckoutCaptchaError('Captcha expired. Please complete it again.');
+      }}
+      onError={(message) => {
+        setCheckoutCaptchaToken('');
+        setCheckoutCaptchaError(message);
+      }}
+    />
+  ) : null;
+
+  const handleContinueCurrentStep = useCallback(async () => {
+    if (currentStepKey === 'order') {
+      if (!validateOrderStep()) {
+        return;
+      }
+      moveToNextStep(0);
       return;
     }
 
-    previousShippingOptionRef.current = form.shippingOption;
-    setQuote(null);
-    setLastQuotedFingerprint(null);
-    setNotice('');
-
-    if (!form.shippingOption || !canAutoQuoteOnShippingSelection) {
+    if (currentStepKey === 'address') {
+      if (!validateAddressStep()) {
+        return;
+      }
+      moveToNextStep(1);
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      void requestQuote();
-    }, 250);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [canAutoQuoteOnShippingSelection, form.shippingOption, requestQuote]);
-
-  const handleCheckoutSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    console.log('[PurchasePage] Checkout submit initiated');
-
-    if (isCheckoutLoading) {
+    if (currentStepKey === 'contact') {
+      if (!validateContactStep()) {
+        return;
+      }
+      moveToNextStep(2);
       return;
     }
 
-    setApiError('');
-    setNotice('');
+    if (currentStepKey === 'shipping') {
+      if (!validateShippingStep()) {
+        return;
+      }
 
-    let activeQuote = quote;
-    if (!activeQuote || lastQuotedFingerprint !== quoteFingerprint) {
-      console.log('[PurchasePage] Requesting fresh quote before checkout');
-      activeQuote = await requestQuote();
+      if (quote && lastQuotedFingerprint === quoteFingerprint) {
+        moveToNextStep(3);
+        return;
+      }
+
+      const nextQuote = await requestQuote();
+      if (!nextQuote) {
+        return;
+      }
+      moveToNextStep(3);
     }
+  }, [
+    currentStepKey,
+    lastQuotedFingerprint,
+    moveToNextStep,
+    quote,
+    quoteFingerprint,
+    requestQuote,
+    validateAddressStep,
+    validateContactStep,
+    validateOrderStep,
+    validateShippingStep,
+  ]);
 
-    if (!activeQuote) {
-      console.warn('[PurchasePage] No active quote after requestQuote');
-      return;
-    }
+  const canContinueCurrentStep =
+    (currentStepKey === 'order' && !isPricingLoading && !isSessionBootstrapping) ||
+    (currentStepKey === 'address' && !isMetadataLoading && !isSessionBootstrapping) ||
+    (currentStepKey === 'contact' && true) ||
+    (currentStepKey === 'shipping' &&
+      !isQuoteLoading &&
+      !isCheckoutLoading &&
+      !isSessionBootstrapping &&
+      (!isQuoteCaptchaRequired || Boolean(quoteCaptchaToken)));
 
-    setIsCheckoutLoading(true);
-
-    try {
-      const checkout = await createCheckout(activeQuote.quoteId);
-      console.log('[PurchasePage] Checkout created successfully:', {
-        quoteId: activeQuote.quoteId,
-        paypalOrderId: checkout.paypalOrderId,
-      });
-      savePurchaseState({
-        quoteId: activeQuote.quoteId,
-        orderId: checkout.orderId,
-        paypalOrderId: checkout.paypalOrderId,
-        phoneE164: normalizedPhoneE164,
-        contactEmail: form.email.trim(),
-      });
-      window.location.assign(checkout.approveUrl);
-    } catch (error) {
-      const parsedError = error as ApiError;
-      console.error('[PurchasePage] Checkout creation failed:', {
-        message: parsedError.message,
-        status: parsedError.status,
-        details: parsedError.details,
-        quoteId: activeQuote.quoteId,
-      });
-      setApiError(parsedError.message || 'Unable to start PayPal checkout.');
-    } finally {
-      setIsCheckoutLoading(false);
-    }
-  };
+  const continueButtonLabel =
+    currentStepKey === 'order'
+      ? 'Continue to Address'
+      : currentStepKey === 'address'
+        ? 'Continue to Contact'
+        : currentStepKey === 'contact'
+          ? 'Continue to Shipping Method'
+          : 'Continue to Checkout';
 
   return (
     <main className="w-full bg-white">
@@ -685,94 +1020,153 @@ function PurchasePage() {
 
       <section className="mx-auto w-full max-w-7xl px-6 py-10 md:px-10 md:py-14 xl:px-12">
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <form className="space-y-9" noValidate onSubmit={handleCheckoutSubmit}>
-            {(apiError || notice) && (
-              <section className="border border-black/10 bg-[#F8F8F6] p-4 md:p-5">
-                {apiError && (
-                  <p className="text-[14px] text-[#8B0000]" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {apiError}
-                  </p>
-                )}
-                {notice && (
-                  <p className="text-[14px] text-[#0A0A0A]/80" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {notice}
-                  </p>
-                )}
-              </section>
+          <form className="space-y-9" noValidate onSubmit={submitCheckout}>
+            <PurchaseStepTimeline
+              steps={purchaseSteps}
+              currentStepIndex={currentStepIndex}
+              completedUntilIndex={completedUntilIndex}
+              onSelectStep={goToStep}
+            />
+
+            {completedUntilIndex >= 0 && currentStepIndex !== 0 && (
+              <PurchaseStepSummaryCard title="Order" lines={orderSummaryLines} onEdit={() => handleEditStep(0)} />
+            )}
+            {completedUntilIndex >= 1 && currentStepIndex !== 1 && (
+              <PurchaseStepSummaryCard title="Address" lines={addressSummaryLines} onEdit={() => handleEditStep(1)} />
+            )}
+            {completedUntilIndex >= 2 && currentStepIndex !== 2 && (
+              <PurchaseStepSummaryCard title="Contact" lines={contactSummaryLines} onEdit={() => handleEditStep(2)} />
+            )}
+            {completedUntilIndex >= 3 && currentStepIndex !== 3 && (
+              <PurchaseStepSummaryCard
+                title="Shipping Method"
+                lines={shippingSummaryLines}
+                onEdit={() => handleEditStep(3)}
+              />
             )}
 
-            <PurchaseSummary
-              variant="order"
-              volumeTitle={resolvedVolume.title}
-              isPricingLoading={isPricingLoading}
-              displayCurrency={displayCurrency}
-              unitEffectivePrice={unitEffectivePrice}
-              unitBasePrice={unitBasePrice}
-              saleActive={saleActive}
-              discountPercent={discountPercent}
-              quantity={form.quantity}
-              quantityError={errors.quantity}
-              maxQuantity={maxQuantity}
-              summaryProduct={summaryProduct}
-              summaryShipping={summaryShipping}
-              summaryFulfillment={summaryFulfillment}
-              summaryHandling={summaryHandling}
-              summaryTax={summaryTax}
-              summaryDiscount={summaryDiscount}
-              summaryTotal={summaryTotal}
-              onDecreaseQuantity={decreaseQuantity}
-              onIncreaseQuantity={increaseQuantity}
-              onQuantityInput={(value) => {
-                const parsed = Number(value);
-                if (Number.isNaN(parsed)) {
-                  updateField('quantity', 1);
-                  return;
-                }
-                updateField('quantity', clampQuantity(parsed));
-              }}
-            />
+            {currentStepKey === 'order' && (
+              <PurchaseOrderStep
+                volumeTitle={resolvedVolume.title}
+                isPricingLoading={isPricingLoading}
+                displayCurrency={displayCurrency}
+                unitEffectivePrice={unitEffectivePrice}
+                unitBasePrice={unitBasePrice}
+                saleActive={saleActive}
+                discountPercent={discountPercent}
+                quantity={form.quantity}
+                quantityError={errors.quantity}
+                maxQuantity={maxQuantity}
+                summaryProduct={summaryProduct}
+                summaryShipping={summaryShipping}
+                summaryFulfillment={summaryFulfillment}
+                summaryHandling={summaryHandling}
+                summaryTax={summaryTax}
+                summaryDiscount={summaryDiscount}
+                summaryTotal={summaryTotal}
+                onDecreaseQuantity={decreaseQuantity}
+                onIncreaseQuantity={increaseQuantity}
+                onQuantityInput={(value) => {
+                  const parsed = Number(value);
+                  if (Number.isNaN(parsed)) {
+                    updateField('quantity', 1);
+                    return;
+                  }
+                  updateField('quantity', clampQuantity(parsed));
+                }}
+                canContinueCurrentStep={canContinueCurrentStep}
+                continueButtonLabel={continueButtonLabel}
+                onContinue={handleContinueCurrentStep}
+              />
+            )}
 
-            <PurchaseShippingForm
-              form={form}
-              errors={errors}
-              shippingInputClasses={shippingInputClasses}
-              addressMetadata={addressMetadata}
-              isMetadataLoading={isMetadataLoading}
-              selectedCountry={selectedCountry}
-              selectedCountryLabel={selectedCountryLabel}
-              requiresStateCode={requiresStateCode}
-              requiresRecipientTaxId={requiresRecipientTaxId}
-              selectedSubdivisionCatalog={selectedSubdivisionCatalog}
-              filteredCountries={filteredCountries}
-              countryQuery={countryQuery}
-              isCountryDropdownOpen={isCountryDropdownOpen}
-              setCountryQuery={setCountryQuery}
-              setIsCountryDropdownOpen={setIsCountryDropdownOpen}
-              phoneDialCode={phoneDialCode}
-              phonePlaceholder={phonePlaceholder}
-              phoneMaxLength={phoneMaxLength}
-              normalizedPhoneE164={normalizedPhoneE164}
-              luluPhoneCandidate={luluPhoneCandidate}
-              shippingOptions={shippingOptions}
-              isShippingOptionsLoading={isShippingOptionsLoading}
-              isPricingLoading={isPricingLoading}
-              isQuoteLoading={isQuoteLoading}
-              isCheckoutLoading={isCheckoutLoading}
-              onUpdateField={updateField}
-              onHandleCountryChange={handleCountryChange}
-              onRequestQuote={requestQuote}
-              formatRecipientTaxIdForInput={formatRecipientTaxIdForInput}
-              getRecipientTaxIdUxHint={getRecipientTaxIdUxHint}
-              formatPhoneForInput={formatPhoneForInput}
-            />
-            <PurchasePaymentAction
-              quote={quote}
-              quoteFingerprint={quoteFingerprint}
-              lastQuotedFingerprint={lastQuotedFingerprint}
-              isPricingLoading={isPricingLoading}
-              isCheckoutLoading={isCheckoutLoading}
-              isQuoteLoading={isQuoteLoading}
-            />
+            {currentStepKey === 'address' && (
+              <PurchaseAddressStep
+                form={form}
+                errors={errors}
+                shippingInputClasses={shippingInputClasses}
+                addressMetadata={addressMetadata}
+                isMetadataLoading={isMetadataLoading}
+                selectedCountry={selectedCountry}
+                selectedCountryLabel={selectedCountryLabel}
+                requiresStateCode={requiresStateCode}
+                requiresRecipientTaxId={requiresRecipientTaxId}
+                selectedSubdivisionCatalog={selectedSubdivisionCatalog}
+                filteredCountries={filteredCountries}
+                countryQuery={countryQuery}
+                isCountryDropdownOpen={isCountryDropdownOpen}
+                stateQuery={stateQuery}
+                isStateDropdownOpen={isStateDropdownOpen}
+                setCountryQuery={setCountryQuery}
+                setIsCountryDropdownOpen={setIsCountryDropdownOpen}
+                setStateQuery={setStateQuery}
+                setIsStateDropdownOpen={setIsStateDropdownOpen}
+                onUpdateField={updateField}
+                onHandleCountryChange={handleCountryChange}
+                formatRecipientTaxIdForInput={formatRecipientTaxIdForInput}
+                getRecipientTaxIdUxHint={getRecipientTaxIdUxHint}
+                canContinueCurrentStep={canContinueCurrentStep}
+                continueButtonLabel={continueButtonLabel}
+                onContinue={handleContinueCurrentStep}
+              />
+            )}
+
+            {currentStepKey === 'contact' && (
+              <PurchaseContactStep
+                form={form}
+                errors={errors}
+                shippingInputClasses={shippingInputClasses}
+                phoneDialCode={phoneDialCode}
+                phonePlaceholder={phonePlaceholder}
+                phoneMaxLength={phoneMaxLength}
+                normalizedPhoneE164={normalizedPhoneE164}
+                luluPhoneCandidate={luluPhoneCandidate}
+                onUpdateField={updateField}
+                formatPhoneForInput={formatPhoneForInput}
+                canContinueCurrentStep={canContinueCurrentStep}
+                continueButtonLabel={continueButtonLabel}
+                onContinue={handleContinueCurrentStep}
+              />
+            )}
+
+            {currentStepKey === 'shipping' && (
+              <PurchaseShippingStep
+                form={form}
+                shippingOptions={shippingOptions}
+                isSessionBootstrapping={isSessionBootstrapping}
+                isShippingOptionsLoading={isShippingOptionsLoading}
+                isPricingLoading={isPricingLoading}
+                isQuoteLoading={isQuoteLoading}
+                isCheckoutLoading={isCheckoutLoading}
+                shippingInputClasses={shippingInputClasses}
+                errors={errors}
+                captchaToken={quoteCaptchaToken}
+                captchaError={quoteCaptchaError}
+                isCaptchaRequired={isQuoteCaptchaRequired}
+                captchaNode={quoteCaptchaNode}
+                onUpdateField={updateField}
+                onRequestQuote={requestQuote}
+                canContinueCurrentStep={canContinueCurrentStep}
+                continueButtonLabel={isQuoteLoading ? 'Calculating...' : continueButtonLabel}
+                onContinue={handleContinueCurrentStep}
+              />
+            )}
+
+            {currentStepKey === 'checkout' && (
+              <PurchaseCheckoutStep
+                quote={quote}
+                quoteFingerprint={quoteFingerprint}
+                lastQuotedFingerprint={lastQuotedFingerprint}
+                isSessionBootstrapping={isSessionBootstrapping}
+                isPricingLoading={isPricingLoading}
+                isCheckoutLoading={isCheckoutLoading}
+                isQuoteLoading={isQuoteLoading}
+                captchaToken={checkoutCaptchaToken}
+                captchaError={checkoutCaptchaError}
+                isCaptchaRequired={isCaptchaRequired}
+                captchaNode={checkoutCaptchaNode}
+              />
+            )}
           </form>
 
           <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">

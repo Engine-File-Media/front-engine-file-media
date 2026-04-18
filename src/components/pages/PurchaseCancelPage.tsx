@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { clearPurchaseState } from '../../utils/storage';
+import { setPurchaseResultStatus } from '../../utils/storage';
 
 function PurchaseCancelPage() {
   useEffect(() => {
-    clearPurchaseState();
+    setPurchaseResultStatus('cancelled');
   }, []);
 
   return (
@@ -25,11 +25,11 @@ function PurchaseCancelPage() {
         </p>
 
         <Link
-          to="/purchase"
+          to="/volume-i"
           className="mt-7 inline-flex items-center justify-center border border-[#030213] bg-[#030213] px-6 py-3 text-[13px] font-semibold tracking-[1.6px] text-white uppercase"
           style={{ fontFamily: 'Inter, sans-serif' }}
         >
-          Return to checkout
+          Back to Volume I
         </Link>
       </section>
     </main>

@@ -66,7 +66,9 @@ const toApiError = (error: unknown): ApiError => {
 
   return {
     message: 'Unexpected error',
-    details: error,
+    details: {
+      raw: error,
+    },
   };
 };
 

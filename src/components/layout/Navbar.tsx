@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import logo from '../../assets/FIGMA/image.webp';
+import logo from '../../assets/FIGMA/EFM_SIN_TITULO.webp';
 
 const mainNavLinks = [
     { label: 'HOME', path: '/' },
