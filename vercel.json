@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "env": {
-    "VITE_ASSET_BASE_URL": "@asset_base_url_staging",
-    "VITE_TURNSTILE_SITE_KEY": "@turnstile_key_staging"
+    "VITE_ASSET_BASE_URL": "@VITE_ASSETS_BASE_URL",
+    "VITE_TURNSTILE_SITE_KEY": "@VITE_TURNSTILE_SITE_KEY"
   }
 }
