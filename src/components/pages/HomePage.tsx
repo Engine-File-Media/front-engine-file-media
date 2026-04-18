@@ -1,25 +1,25 @@
-import { useState } from 'react';
+//import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { assetsUrls } from '../../assets';
 
 function HomePage() {
-    const [email, setEmail] = useState('');
-    const [emailError, setEmailError] = useState('');
+    // const [email, setEmail] = useState('');
+    // const [emailError, setEmailError] = useState('');
 
-    const handleSubscribe = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
+    // const handleSubscribe = (event: React.FormEvent<HTMLFormElement>) => {
+    //     event.preventDefault();
 
-        const trimmedEmail = email.trim();
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    //     const trimmedEmail = email.trim();
+    //     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-        if (!emailPattern.test(trimmedEmail)) {
-            setEmailError('Please enter a valid email address.');
-            return;
-        }
+    //     if (!emailPattern.test(trimmedEmail)) {
+    //         setEmailError('Please enter a valid email address.');
+    //         return;
+    //     }
 
-        setEmailError('');
-        console.log(trimmedEmail);
-    };
+    //     setEmailError('');
+    //     console.log(trimmedEmail);
+    // };
 
     return (
         <main className="w-full max-w-full overflow-x-hidden flex flex-col items-center bg-white">
@@ -123,7 +123,7 @@ function HomePage() {
                 </div>
             </section>
 
-            <section className="w-full bg-[#AEAEAE] flex items-center justify-center py-4 md:py-20">
+            {/* <section className="w-full bg-[#AEAEAE] flex items-center justify-center py-4 md:py-20">
                 <div className="w-full max-w-99.5 flex flex-col items-center px-5.5 py-4 md:max-w-337.5 md:px-6">
                     <h2
                         className="m-0 text-center text-[21px] italic font-medium leading-4.5 tracking-[0.6px] text-white md:text-[26px] lg:text-[29px]"
@@ -173,7 +173,7 @@ function HomePage() {
                         </button>
                     </form>
                 </div>
-            </section>
+            </section> */}
 
             <section className="w-full bg-white flex flex-col items-center py-10 md:py-24">
                 <div className="w-full max-w-71 h-px bg-[#D9D9D9] md:max-w-201" />
