@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import logo from '../../assets/FIGMA/image.webp';
+import { assetsUrls } from '../../assets';
 
 const mainNavLinks = [
     { label: 'HOME', path: '/' },
@@ -14,7 +14,11 @@ const volumeLinks = [
     // { label: 'VOLUME II', path: '/volume-ii' },
 ];
 
-const Navbar = () => {
+type NavbarProps = {
+    logoOnly?: boolean;
+};
+
+const Navbar = ({ logoOnly = false }: NavbarProps) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [desktopVolumesOpen, setDesktopVolumesOpen] = useState(false);
     const [mobileVolumesOpen, setMobileVolumesOpen] = useState(false);
@@ -24,12 +28,24 @@ const Navbar = () => {
         setMobileVolumesOpen(false);
     }
 
+    if (logoOnly) {
+        return (
+            <header className="w-full bg-white border-b border-black/10">
+                <div className="w-full px-5 py-7.75 md:px-24 md:py-6 flex flex-row items-center justify-start h-20 md:h-19.5">
+                    <NavLink to="/" className="flex items-center shrink-0" aria-label="Go to homepage">
+                        <img src={assetsUrls.brand.logo} alt="EFM Logo" className="w-20 h-7.75 object-contain" />
+                    </NavLink>
+                </div>
+            </header>
+        );
+    }
+
     return (
         <header className="w-full bg-white border-b border-black/10">
             <div className="w-full px-5 py-7.75 md:px-24 md:py-6 flex flex-row items-center justify-between h-20 md:h-19.5">
                 {/* Logo */}
                 <NavLink to="/" className="flex items-center shrink-0">
-                    <img src={logo} alt="EFM Logo" className="w-20 h-7.75 object-contain" />
+                    <img src={assetsUrls.brand.logo} alt="EFM Logo" className="w-20 h-7.75 object-contain" />
                 </NavLink>
 
                 {/* Desktop nav links */}

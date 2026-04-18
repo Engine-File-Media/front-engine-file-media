@@ -1,4 +1,4 @@
-import logotipos from '../../assets/FIGMA/Logo de Marcas/Logotipos.webp';
+import { assetsUrls } from '../../assets';
 
 const Footer = () => {
   return (
@@ -11,7 +11,7 @@ const Footer = () => {
       </p>
 
       <img
-        src={logotipos}
+        src={assetsUrls.brand.logotipos}
         alt="Brand logos"
         className="mx-auto block w-auto max-w-full h-auto object-contain md:mt-28"
       />
