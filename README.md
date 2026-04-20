@@ -156,13 +156,17 @@ npm run lint
 Frontend captcha is configured through:
 
 ```bash
+VITE_API_BASE_URL=/api
+VITE_API_PROXY_TARGET=http://localhost:3000
 VITE_TURNSTILE_SITE_KEY=
 ```
 
 Setup:
 1. Copy `.env.example` to `.env`.
-2. Set `VITE_TURNSTILE_SITE_KEY` with your Cloudflare Turnstile site key.
-3. Restart the Vite dev server after updating env values.
+2. Set `VITE_API_BASE_URL` to the frontend API base path (recommended: `/api`).
+3. Set `VITE_API_PROXY_TARGET` to your backend URL for local Vite proxy.
+4. Set `VITE_TURNSTILE_SITE_KEY` with your Cloudflare Turnstile site key.
+5. Restart the Vite dev server after updating env values.
 
 Behavior by backend mode:
 1. If backend `CAPTCHA_ENABLED=true`, quote and checkout requests include `X-Captcha-Token` and require solving captcha.

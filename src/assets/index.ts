@@ -1,4 +1,4 @@
-const ASSET_BASE_URL = import.meta.env.VITE_ASSET_BASE_URL;
+const ASSET_BASE_URL = import.meta.env.VITE_ASSETS_BASE_URL;
 
 const assetUrl = (path: string) => `${ASSET_BASE_URL}/${path}`;
 
