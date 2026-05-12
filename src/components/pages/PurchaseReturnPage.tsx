@@ -53,6 +53,7 @@ function PurchaseReturnPage() {
 
         const response = await capturePaypalOrder(paypalOrderId, capturePayload, {
           idempotencyKey,
+          purchaseSessionId: stored?.purchaseSession?.sessionId,
         });
         setPurchaseResultStatus('captured');
         setStatus('success');

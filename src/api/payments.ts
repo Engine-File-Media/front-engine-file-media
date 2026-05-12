@@ -21,7 +21,8 @@ type SecurePurchaseHeaders = {
 };
 
 type CaptureHeaders = {
-  idempotencyKey: string;
+  purchaseSessionId?: string;
+  idempotencyKey?: string;
 };
 
 export const getBooksPricing = async () => {
@@ -145,7 +146,10 @@ export const capturePaypalOrder = async (
   console.log('🎯 [capturePaypalOrder] Capturing PayPal order', { paypalOrderId });
   try {
     const { data } = await bffClient.post<CaptureResponse>(`/paypal/orders/${paypalOrderId}/captures`, payload ?? {}, {
-      headers: buildBffHeaders({ idempotencyKey: secureHeaders?.idempotencyKey }),
+      headers: buildBffHeaders({
+        sessionId: secureHeaders?.purchaseSessionId,
+        idempotencyKey: secureHeaders?.idempotencyKey,
+      }),
     });
     console.log('✅ [capturePaypalOrder] Success', {
       orderStatus: data.order.status,
