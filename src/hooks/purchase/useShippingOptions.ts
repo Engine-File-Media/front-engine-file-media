@@ -121,7 +121,7 @@ export const useShippingOptions = ({
 
       void (async () => {
         try {
-          const response = await getShippingOptions(shippingRequestPayload);
+          const response = await getShippingOptions(shippingRequestPayload, purchaseSessionId);
           const fetchedOptions = response.shippingOptions;
 
           setShippingOptions(fetchedOptions);

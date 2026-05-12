@@ -1,4 +1,6 @@
-import { client, toApiError } from './client';
+import { bffClient } from './bff-client';
+import { toApiError } from './client';
+import { buildBffHeaders } from './bff-headers';
 import type {
   AddressMetadataResponse,
   BooksPricingResponse,
@@ -25,7 +27,7 @@ type CaptureHeaders = {
 export const getBooksPricing = async () => {
   console.log('📚 [getBooksPricing] Fetching books pricing...');
   try {
-    const { data } = await client.get<BooksPricingResponse>('/books/pricing');
+    const { data } = await bffClient.get<BooksPricingResponse>('/books/pricing');
     console.log('✅ [getBooksPricing] Success', data);
     return data;
   } catch (error) {
@@ -38,7 +40,7 @@ export const getAddressMetadata = async (countryCode?: string) => {
   const query = countryCode ? `?country=${countryCode}` : '';
   console.log('🌍 [getAddressMetadata] Fetching address metadata', { countryCode });
   try {
-    const { data } = await client.get<AddressMetadataResponse>(`/address/metadata${query}`);
+    const { data } = await bffClient.get<AddressMetadataResponse>(`/address/metadata${query}`);
     console.log('✅ [getAddressMetadata] Success', {
       countryCode: data.fields.countryCode,
       countriesCount: data.countries.length,
@@ -51,7 +53,7 @@ export const getAddressMetadata = async (countryCode?: string) => {
   }
 };
 
-export const getShippingOptions = async (payload: CreateShippingOptionsRequest) => {
+export const getShippingOptions = async (payload: CreateShippingOptionsRequest, purchaseSessionId?: string) => {
   console.log('🚚 [getShippingOptions] Requesting shipping options', {
     bookId: payload.bookId,
     quantity: payload.quantity,
@@ -59,7 +61,9 @@ export const getShippingOptions = async (payload: CreateShippingOptionsRequest) 
     state: payload.address.state,
   });
   try {
-    const { data } = await client.post<ShippingOptionsResponse>('/shipping-options', payload);
+    const { data } = await bffClient.post<ShippingOptionsResponse>('/shipping-options', payload, {
+      headers: buildBffHeaders({ sessionId: purchaseSessionId }),
+    });
     console.log(`✅ [getShippingOptions] Success - ${data.shippingOptions?.length || 0} options received`, data);
     return data;
   } catch (error) {
@@ -71,7 +75,7 @@ export const getShippingOptions = async (payload: CreateShippingOptionsRequest) 
 export const createPurchaseSession = async (bookId: string) => {
   console.log('🔐 [createPurchaseSession] Creating purchase session', { bookId });
   try {
-    const { data } = await client.post<PurchaseSessionResponse>('/purchase-sessions', { bookId });
+    const { data } = await bffClient.post<PurchaseSessionResponse>('/purchase-sessions', { bookId });
     console.log('✅ [createPurchaseSession] Success', {
       sessionId: data.sessionId,
       state: data.state,
@@ -93,12 +97,12 @@ export const createQuote = async (payload: CreateQuoteRequest, secureHeaders: Se
     country: payload.address.country,
   });
   try {
-    const { data } = await client.post<QuoteResponse>('/quotes', payload, {
-      headers: {
-        'X-Purchase-Session': secureHeaders.purchaseSessionId,
-        'Idempotency-Key': secureHeaders.idempotencyKey,
-        'X-Captcha-Token': secureHeaders.captchaToken,
-      },
+    const { data } = await bffClient.post<QuoteResponse>('/quotes', payload, {
+      headers: buildBffHeaders({
+        sessionId: secureHeaders.purchaseSessionId,
+        idempotencyKey: secureHeaders.idempotencyKey,
+        captchaToken: secureHeaders.captchaToken,
+      }),
     });
     console.log('✅ [createQuote] Success', {
       quoteId: data.quoteId,
@@ -115,17 +119,13 @@ export const createQuote = async (payload: CreateQuoteRequest, secureHeaders: Se
 export const createCheckout = async (quoteId: string, secureHeaders: SecurePurchaseHeaders) => {
   console.log('🛒 [createCheckout] Creating checkout for quote', { quoteId });
   try {
-    const { data } = await client.post<CheckoutResponse>(
-      '/checkouts',
-      { quoteId },
-      {
-        headers: {
-          'X-Purchase-Session': secureHeaders.purchaseSessionId,
-          'Idempotency-Key': secureHeaders.idempotencyKey,
-          'X-Captcha-Token': secureHeaders.captchaToken,
-        },
-      },
-    );
+    const { data } = await bffClient.post<CheckoutResponse>('/checkouts', { quoteId }, {
+      headers: buildBffHeaders({
+        sessionId: secureHeaders.purchaseSessionId,
+        idempotencyKey: secureHeaders.idempotencyKey,
+        captchaToken: secureHeaders.captchaToken,
+      }),
+    });
     console.log('✅ [createCheckout] Success', {
       approveUrl: data.approveUrl?.substring(0, 50) + '...',
       paypalOrderId: data.paypalOrderId,
@@ -144,17 +144,9 @@ export const capturePaypalOrder = async (
 ) => {
   console.log('🎯 [capturePaypalOrder] Capturing PayPal order', { paypalOrderId });
   try {
-    const { data } = await client.post<CaptureResponse>(
-      `/paypal/orders/${paypalOrderId}/captures`,
-      payload ?? {},
-      {
-        headers: secureHeaders
-          ? {
-              'Idempotency-Key': secureHeaders.idempotencyKey,
-            }
-          : undefined,
-      },
-    );
+    const { data } = await bffClient.post<CaptureResponse>(`/paypal/orders/${paypalOrderId}/captures`, payload ?? {}, {
+      headers: buildBffHeaders({ idempotencyKey: secureHeaders?.idempotencyKey }),
+    });
     console.log('✅ [capturePaypalOrder] Success', {
       orderStatus: data.order.status,
       orderId: data.order.id,

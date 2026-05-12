@@ -158,6 +158,7 @@ Frontend captcha is configured through:
 ```bash
 VITE_API_BASE_URL=/api
 VITE_API_PROXY_TARGET=http://localhost:3000
+VITE_BFF_BASE_URL=/bff
 VITE_TURNSTILE_SITE_KEY=
 ```
 
