@@ -27,6 +27,10 @@ export default defineConfig(({ mode }) => {
           target: apiProxyTarget,
           changeOrigin: true,
         },
+        '/bff': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
       },
     },
   }

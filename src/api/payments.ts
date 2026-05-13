@@ -3,6 +3,7 @@ import { toApiError } from './client';
 import { buildBffHeaders } from './bff-headers';
 import type {
   AddressMetadataResponse,
+  CheckoutFundingSource,
   BooksPricingResponse,
   CaptureRequest,
   CaptureResponse,
@@ -13,6 +14,7 @@ import type {
   QuoteResponse,
   ShippingOptionsResponse,
 } from './types';
+import { normalizeCheckoutFundingSource } from './types';
 
 type SecurePurchaseHeaders = {
   purchaseSessionId: string;
@@ -117,10 +119,18 @@ export const createQuote = async (payload: CreateQuoteRequest, secureHeaders: Se
   }
 };
 
-export const createCheckout = async (quoteId: string, secureHeaders: SecurePurchaseHeaders) => {
-  console.log('🛒 [createCheckout] Creating checkout for quote', { quoteId });
+export const createCheckout = async (
+  quoteId: string,
+  secureHeaders: SecurePurchaseHeaders,
+  fundingSource?: CheckoutFundingSource,
+) => {
+  const appliedFundingSource = normalizeCheckoutFundingSource(fundingSource);
+  console.log('🛒 [createCheckout] Creating checkout for quote', { quoteId, fundingSource: appliedFundingSource });
   try {
-    const { data } = await bffClient.post<CheckoutResponse>('/checkouts', { quoteId }, {
+    const { data } = await bffClient.post<CheckoutResponse>('/checkouts', {
+      quoteId,
+      fundingSource: appliedFundingSource,
+    }, {
       headers: buildBffHeaders({
         sessionId: secureHeaders.purchaseSessionId,
         idempotencyKey: secureHeaders.idempotencyKey,
@@ -130,6 +140,8 @@ export const createCheckout = async (quoteId: string, secureHeaders: SecurePurch
     console.log('✅ [createCheckout] Success', {
       approveUrl: data.approveUrl?.substring(0, 50) + '...',
       paypalOrderId: data.paypalOrderId,
+      fundingSource: data.fundingSource,
+      fundingPriority: data.fundingPriority,
     });
     return data;
   } catch (error) {

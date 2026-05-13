@@ -8,6 +8,24 @@ export type OrderStatus =
 
 export type CurrencyCode = 'USD' | string;
 
+export const CHECKOUT_FUNDING_SOURCES = ['card', 'paylater', 'paypal'] as const;
+
+export type CheckoutFundingSource = (typeof CHECKOUT_FUNDING_SOURCES)[number];
+
+export type CheckoutFundingPriority = CheckoutFundingSource[];
+
+export const DEFAULT_CHECKOUT_FUNDING_PRIORITY: CheckoutFundingPriority = [...CHECKOUT_FUNDING_SOURCES];
+
+export const isCheckoutFundingSource = (value: unknown): value is CheckoutFundingSource => {
+  return typeof value === 'string' && CHECKOUT_FUNDING_SOURCES.includes(value as CheckoutFundingSource);
+};
+
+export const normalizeCheckoutFundingSource = (
+  value?: string | null,
+): CheckoutFundingSource => {
+  return isCheckoutFundingSource(value) ? value : 'card';
+};
+
 export type BookPricing = {
   id: string;
   title: string;
@@ -176,6 +194,7 @@ export type ShippingOptionsResponse = {
 
 export type CreateCheckoutRequest = {
   quoteId: string;
+  fundingSource?: CheckoutFundingSource;
 };
 
 export type CheckoutResponse = {
@@ -184,6 +203,8 @@ export type CheckoutResponse = {
   paypalStatus: string;
   approveUrl: string;
   orderStatus: OrderStatus;
+  fundingSource: CheckoutFundingSource;
+  fundingPriority: CheckoutFundingPriority;
 };
 
 export type CaptureRequest = {

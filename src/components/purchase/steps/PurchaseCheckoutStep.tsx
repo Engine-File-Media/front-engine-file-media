@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import PurchasePaymentAction from '../PurchasePaymentAction';
-import type { QuoteResponse } from '../../../api/types';
+import type { CheckoutFundingPriority, CheckoutResponse, CheckoutFundingSource, QuoteResponse } from '../../../api/types';
 
 type PurchaseCheckoutStepProps = {
   quote: QuoteResponse | null;
@@ -14,6 +14,9 @@ type PurchaseCheckoutStepProps = {
   captchaError: string;
   isCaptchaRequired: boolean;
   captchaNode: ReactNode;
+  paypalClientId: string;
+  fundingPriority: CheckoutFundingPriority;
+  createCheckoutOrder: (fundingSource?: CheckoutFundingSource) => Promise<CheckoutResponse | null>;
 };
 
 function PurchaseCheckoutStep({
@@ -28,6 +31,9 @@ function PurchaseCheckoutStep({
   captchaError,
   isCaptchaRequired,
   captchaNode,
+  paypalClientId,
+  fundingPriority,
+  createCheckoutOrder,
 }: PurchaseCheckoutStepProps) {
   return (
     <PurchasePaymentAction
@@ -42,6 +48,9 @@ function PurchaseCheckoutStep({
       captchaError={captchaError}
       isCaptchaRequired={isCaptchaRequired}
       captchaNode={captchaNode}
+      paypalClientId={paypalClientId}
+      fundingPriority={fundingPriority}
+      createCheckoutOrder={createCheckoutOrder}
     />
   );
 }

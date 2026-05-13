@@ -160,6 +160,7 @@ VITE_API_BASE_URL=/api
 VITE_API_PROXY_TARGET=http://localhost:3000
 VITE_BFF_BASE_URL=/bff
 VITE_TURNSTILE_SITE_KEY=
+VITE_PAYPAL_CLIENT_ID=
 ```
 
 Setup:
@@ -167,7 +168,8 @@ Setup:
 2. Set `VITE_API_BASE_URL` to the frontend API base path (recommended: `/api`).
 3. Set `VITE_API_PROXY_TARGET` to your backend URL for local Vite proxy.
 4. Set `VITE_TURNSTILE_SITE_KEY` with your Cloudflare Turnstile site key.
-5. Restart the Vite dev server after updating env values.
+5. Set `VITE_PAYPAL_CLIENT_ID` with your PayPal REST client id.
+6. Restart the Vite dev server after updating env values.
 
 Behavior by backend mode:
 1. If backend `CAPTCHA_ENABLED=true`, quote and checkout requests include `X-Captcha-Token` and require solving captcha.
@@ -186,7 +188,7 @@ Error handling in checkout flow:
 2. Continua a `PurchasePage`.
 3. Completa datos de envio y contacto.
 4. Se solicita una cotizacion al backend (`createQuote`).
-5. Se crea checkout (`createCheckout`) y se redirige a PayPal.
+5. Se crea checkout (`createCheckout`) desde Smart Buttons con fundingSource seleccionado.
 6. El retorno se maneja en `PurchaseReturnPage` o `PurchaseCancelPage`.
 
 ---

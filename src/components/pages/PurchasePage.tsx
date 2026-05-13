@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getAddressMetadata, getBooksPricing } from '../../api/payments';
-import type { AddressMetadataResponse, ApiError, BookPricing, QuoteResponse } from '../../api/types';
+import type {
+  AddressMetadataResponse,
+  ApiError,
+  BookPricing,
+  CheckoutFundingPriority,
+  CheckoutResponse,
+  QuoteResponse,
+} from '../../api/types';
+import { DEFAULT_CHECKOUT_FUNDING_PRIORITY } from '../../api/types';
 import PurchaseGallery from '../purchase/PurchaseGallery';
 import PurchaseAddressStep from '../purchase/steps/PurchaseAddressStep';
 import PurchaseCheckoutStep from '../purchase/steps/PurchaseCheckoutStep';
@@ -20,6 +28,7 @@ import { usePurchaseSession } from '../../hooks/purchase/usePurchaseSession';
 import { usePurchaseQuote } from '../../hooks/purchase/usePurchaseQuote';
 import { useShippingOptions } from '../../hooks/purchase/useShippingOptions';
 import { resolveVolumeConfig } from '../../data/volumes';
+import { beginPurchaseEntry, canAccessPurchase } from '../../utils/storage';
 import {
   composePhoneWithDialCode,
   formatPhoneForInput,
@@ -38,6 +47,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxQuantity = 50;
 const stateCodePattern = /^[A-Z0-9-]{1,10}$/;
 const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? '';
+const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID?.trim() ?? '';
 type StepKey = 'order' | 'address' | 'contact' | 'shipping' | 'checkout';
 
 const purchaseSteps: Array<{ key: StepKey; label: string }> = [
@@ -126,6 +136,18 @@ const getRecipientTaxIdUxHint = (countryCode: string) => {
 function PurchasePage() {
   const { volumeId } = useParams<{ volumeId?: string }>();
   const resolvedVolume = useMemo(() => resolveVolumeConfig(volumeId), [volumeId]);
+
+  useEffect(() => {
+    // Ensure a purchase entry exists for this volume so route guards and result access work
+    try {
+      const ok = canAccessPurchase(resolvedVolume.id);
+      if (!ok) {
+        beginPurchaseEntry(resolvedVolume.bookId);
+      }
+    } catch {
+      // ignore errors when checking storage
+    }
+  }, [resolvedVolume]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<BookPricing | null>(null);
@@ -152,6 +174,9 @@ function PurchasePage() {
   const [isMetadataLoading, setIsMetadataLoading] = useState(false);
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [lastQuotedFingerprint, setLastQuotedFingerprint] = useState<string | null>(null);
+  const [checkoutFundingPriority, setCheckoutFundingPriority] = useState<CheckoutFundingPriority>(
+    DEFAULT_CHECKOUT_FUNDING_PRIORITY,
+  );
   const [countryQuery, setCountryQuery] = useState('');
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const [stateQuery, setStateQuery] = useState('');
@@ -858,6 +883,7 @@ function PurchasePage() {
 
   const {
     submitCheckout,
+    createCheckoutOrder,
     isCheckoutLoading,
   } = usePurchaseCheckout({
     quote,
@@ -876,6 +902,9 @@ function PurchasePage() {
     setCheckoutCaptchaError,
     onInternalError: reportInternalIssue,
     onCheckoutCaptchaFailure: handleCheckoutCaptchaFailure,
+    onCheckoutCreated: (checkout: CheckoutResponse) => {
+      setCheckoutFundingPriority(checkout.fundingPriority.length > 0 ? [...checkout.fundingPriority] : DEFAULT_CHECKOUT_FUNDING_PRIORITY);
+    },
     resetCheckoutCaptcha,
   });
 
@@ -1165,6 +1194,9 @@ function PurchasePage() {
                 captchaError={checkoutCaptchaError}
                 isCaptchaRequired={isCaptchaRequired}
                 captchaNode={checkoutCaptchaNode}
+                paypalClientId={paypalClientId}
+                fundingPriority={checkoutFundingPriority}
+                createCheckoutOrder={createCheckoutOrder}
               />
             )}
           </form>
