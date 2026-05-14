@@ -3,6 +3,7 @@ import { toApiError } from './client';
 import { buildBffHeaders } from './bff-headers';
 import type {
   AddressMetadataResponse,
+  CheckoutCreationOptions,
   CheckoutFundingSource,
   BooksPricingResponse,
   CaptureRequest,
@@ -123,13 +124,21 @@ export const createCheckout = async (
   quoteId: string,
   secureHeaders: SecurePurchaseHeaders,
   fundingSource?: CheckoutFundingSource,
+  checkoutOptions?: CheckoutCreationOptions,
 ) => {
   const appliedFundingSource = normalizeCheckoutFundingSource(fundingSource);
-  console.log('🛒 [createCheckout] Creating checkout for quote', { quoteId, fundingSource: appliedFundingSource });
+  console.log('🛒 [createCheckout] Creating checkout for quote', {
+    quoteId,
+    fundingSource: appliedFundingSource,
+    shippingPreference: checkoutOptions?.shippingPreference ?? 'NO_SHIPPING',
+    billingSameAsShipping: checkoutOptions?.billingSameAsShipping ?? true,
+  });
   try {
     const { data } = await bffClient.post<CheckoutResponse>('/checkouts', {
       quoteId,
       fundingSource: appliedFundingSource,
+      shippingPreference: checkoutOptions?.shippingPreference ?? 'NO_SHIPPING',
+      billingSameAsShipping: checkoutOptions?.billingSameAsShipping ?? true,
     }, {
       headers: buildBffHeaders({
         sessionId: secureHeaders.purchaseSessionId,

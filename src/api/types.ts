@@ -16,6 +16,13 @@ export type CheckoutFundingPriority = CheckoutFundingSource[];
 
 export const DEFAULT_CHECKOUT_FUNDING_PRIORITY: CheckoutFundingPriority = [...CHECKOUT_FUNDING_SOURCES];
 
+export type CheckoutShippingPreference = 'NO_SHIPPING';
+
+export type CheckoutCreationOptions = {
+  shippingPreference?: CheckoutShippingPreference;
+  billingSameAsShipping?: boolean;
+};
+
 export const isCheckoutFundingSource = (value: unknown): value is CheckoutFundingSource => {
   return typeof value === 'string' && CHECKOUT_FUNDING_SOURCES.includes(value as CheckoutFundingSource);
 };
@@ -195,6 +202,8 @@ export type ShippingOptionsResponse = {
 export type CreateCheckoutRequest = {
   quoteId: string;
   fundingSource?: CheckoutFundingSource;
+  shippingPreference?: CheckoutShippingPreference;
+  billingSameAsShipping?: boolean;
 };
 
 export type CheckoutResponse = {
